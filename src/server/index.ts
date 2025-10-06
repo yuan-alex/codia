@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { convertToModelMessages, type UIMessage } from "ai";
-import { agent, runAgent } from "../lib/agent";
+import { agent } from "../lib/agent";
+import { config } from "../lib/config";
 
 const app = new Hono();
 
@@ -20,9 +21,7 @@ app.post("/api/chat", async (c) => {
   }
 });
 
-console.log("Server running on http://localhost:3000");
-
 export default {
-  port: 3000,
+  port: config.port,
   fetch: app.fetch,
 };

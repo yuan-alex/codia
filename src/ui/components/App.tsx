@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { DefaultChatTransport } from "ai";
 
 import { MainInterface } from "./MainInterface";
+import { config } from "../../lib/config";
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -17,7 +18,7 @@ export function App() {
 
   const { messages, sendMessage, status, error } = useChat({
     transport: new DefaultChatTransport({
-      api: "http://localhost:3000/api/chat",
+      api: `http://localhost:${config.port}/api/chat`,
     }),
   });
 
