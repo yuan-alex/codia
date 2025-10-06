@@ -1,1 +1,3 @@
-# coding-agent-cli
+# Codia
+
+The Coding Agent platform.
