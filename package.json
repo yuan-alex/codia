@@ -4,12 +4,9 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"bun run dev:server\" \"bun run dev:cli\"",
+    "dev": "bun run src/ui/index.tsx",
     "test": "bun test",
-    "test:tools": "bun test tools.test.ts",
-    "test:watch": "bun test --watch",
-    "dev:server": "bun run src/server/index.ts",
-    "dev:cli": "bun run src/ui/index.tsx"
+    "test:tools": "bun test tools.test.ts"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^1.0.19",

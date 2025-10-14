@@ -39,8 +39,8 @@ export function MainInterface({
       {messages.length === 0 && (
         <Box paddingX={2} paddingY={1} borderTop>
           <Box flexDirection="column">
-            <Text color="yellow" bold>
-              🚀 Welcome to the Coding Agent CLI!
+            <Text color="cyanBright" bold>
+              Hey, I'm Codia
             </Text>
             <Text color="gray" dimColor>
               Ask me to code, debug, or help with any programming tasks.
@@ -60,7 +60,7 @@ export function MainInterface({
                   value={input}
                   onChange={setInput}
                   onSubmit={handleSubmit}
-                  placeholder="Type your question or 'exit' to quit..."
+                  placeholder="Chat with Codia or 'exit' to quit..."
                 />
               </Box>
             )}
