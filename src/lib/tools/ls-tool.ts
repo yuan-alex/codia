@@ -36,10 +36,22 @@ export const lsTool = tool({
     const items = fs.readdirSync(absolutePath);
     const results: string[] = [];
 
+    // Helper function to format bytes in human-readable format
+    const formatSize = (bytes: number): string => {
+      if (bytes === 0) return "0B";
+      const k = 1024;
+      const sizes = ["B", "K", "M", "G", "T"];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return Math.round(bytes / Math.pow(k, i)) + sizes[i];
+    };
+
     for (const item of items) {
       const itemPath = path.join(absolutePath, item);
       const itemStats = fs.statSync(itemPath);
-      results.push(`${item}${itemStats.isDirectory() ? "/" : ""}`);
+      const isDir = itemStats.isDirectory();
+      const size = isDir ? "-" : formatSize(itemStats.size);
+      const name = `${item}${isDir ? "/" : ""}`;
+      results.push(`${size.padStart(8)} ${name}`);
     }
 
     return results.join("\n");

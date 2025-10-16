@@ -4,7 +4,7 @@ import path from "path";
 import { z } from "zod";
 
 export const catTool = tool({
-  description: "Read and display file contents",
+  description: "Read and display file contents. For large files (>100K or >1000 lines), use bash tool with 'head' or 'tail' commands instead (e.g., 'head -n 100 file.txt' or 'tail -n 50 file.txt').",
   inputSchema: z.object({
     filePath: z.string().describe("Path to the file to read"),
   }),

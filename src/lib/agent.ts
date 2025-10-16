@@ -31,11 +31,18 @@ Explain and guide your reasoning to the user.
 4. EXECUTE: Make the necessary code changes directly
 
 [TOOLS]
-- ls: List directory contents
-- cat: Read file contents
+- ls: List directory contents (shows file sizes to help you decide reading strategy)
+- cat: Read file contents (limited to 1MB files)
 - grep: Search for patterns in files
 - edit: Edit files using search and replace
 - bash: Execute bash commands (use carefully)
+
+[READING LARGE FILES]
+When ls shows a file is large (>100K), use bash tool with head/tail instead of cat:
+- head -n 100 file.txt  # Read first 100 lines
+- tail -n 50 file.txt   # Read last 50 lines
+- head -c 1000 file.txt # Read first 1000 bytes
+These commands are available on all Unix systems (Linux, macOS).
 
 If there is a tool you believe is missing, attempt to use the bash tool to work around it.
 
