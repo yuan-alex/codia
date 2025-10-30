@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "bun run src/ui/index.tsx",
     "test": "bun test",
-    "test:tools": "bun test tools.test.ts"
+    "test:tools": "bun test tools.test.ts",
+    "format": "biome format --write ."
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^1.0.22",
