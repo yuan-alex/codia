@@ -16,14 +16,19 @@ interface ToolRendererProps {
 
 export function getToolInputSummary(toolName: string, input: any): string {
   switch (toolName) {
+    case "bash":
     case "bashTool":
       return getBashSummary(input);
+    case "cat":
     case "catTool":
       return getCatSummary(input);
+    case "edit":
     case "editTool":
       return getEditSummary(input);
+    case "grep":
     case "grepTool":
       return getGrepSummary(input);
+    case "ls":
     case "lsTool":
       return getLsSummary(input);
     default:
@@ -39,14 +44,19 @@ export function ToolRenderer({ toolPart, toolName }: ToolRendererProps) {
 
   // Route to the appropriate tool component based on toolName
   switch (toolName) {
+    case "bash":
     case "bashTool":
       return <BashTool toolPart={toolPart} />;
+    case "cat":
     case "catTool":
       return <CatTool toolPart={toolPart} />;
+    case "edit":
     case "editTool":
       return <EditTool toolPart={toolPart} />;
+    case "grep":
     case "grepTool":
       return <GrepTool toolPart={toolPart} />;
+    case "ls":
     case "lsTool":
       return <LsTool toolPart={toolPart} />;
     default:

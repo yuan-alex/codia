@@ -4,6 +4,7 @@ import type { UIMessage } from "@ai-sdk/react";
 import type { DynamicToolPart, TypedToolPart, ReasoningPart } from "../types";
 import { ToolRenderer, getToolInputSummary } from "./ToolRenderer";
 import { getStateDisplay } from "./utils";
+import { ToolApproval } from "./ToolApproval";
 
 // Component to handle reasoning display with timing
 function ReasoningIndicator({ part }: { part: ReasoningPart }) {
@@ -35,9 +36,17 @@ function ReasoningIndicator({ part }: { part: ReasoningPart }) {
 }
 
 // Helper function to render dynamic tool parts
-function renderDynamicToolPart(toolPart: DynamicToolPart, index: number) {
+function renderDynamicToolPart(
+  toolPart: DynamicToolPart,
+  index: number,
+  onApprove?: (approvalId: string, approved: boolean) => Promise<void>,
+) {
   const callId = toolPart.toolCallId;
   const inputSummary = getToolInputSummary(toolPart.toolName, toolPart.input);
+  const isApprovalRequest = toolPart.state === "approval-requested";
+  const approvalId = (toolPart as any).approval?.id;
+  // Tools that require approval: bash, edit
+  const requiresApproval = toolPart.toolName === "bash" || toolPart.toolName === "edit";
 
   return (
     <Box key={`tool-${index}-${callId}`} flexDirection="column">
@@ -52,7 +61,14 @@ function renderDynamicToolPart(toolPart: DynamicToolPart, index: number) {
           {getStateDisplay(toolPart.state)}
         </Text>
       </Box>
-      {toolPart.errorText ? (
+      {isApprovalRequest && requiresApproval && onApprove && approvalId ? (
+        <ToolApproval
+          toolPart={toolPart}
+          toolName={toolPart.toolName}
+          approvalId={approvalId}
+          onApprove={onApprove}
+        />
+      ) : toolPart.errorText ? (
         <Box flexDirection="column" marginLeft={2}>
           <Text color="red" dimColor>
             Error: {toolPart.errorText}
@@ -70,9 +86,14 @@ function renderTypedToolPart(
   toolPart: TypedToolPart,
   toolName: string,
   index: number,
+  onApprove?: (approvalId: string, approved: boolean) => Promise<void>,
 ) {
   const callId = toolPart.toolCallId;
   const inputSummary = getToolInputSummary(toolName, toolPart.input);
+  const isApprovalRequest = toolPart.state === "approval-requested";
+  const approvalId = (toolPart as any).approval?.id;
+  // Tools that require approval: bash, edit
+  const requiresApproval = toolName === "bash" || toolName === "edit";
 
   // Check if this is an interactive tool that needs user confirmation
   const isInteractiveTool =
@@ -98,7 +119,14 @@ function renderTypedToolPart(
           {getStateDisplay(toolPart.state)}
         </Text>
       </Box>
-      {toolPart.errorText ? (
+      {isApprovalRequest && requiresApproval && onApprove && approvalId ? (
+        <ToolApproval
+          toolPart={toolPart}
+          toolName={toolName}
+          approvalId={approvalId}
+          onApprove={onApprove}
+        />
+      ) : toolPart.errorText ? (
         <Box flexDirection="column" marginLeft={2}>
           <Text color="red" dimColor>
             Error: {toolPart.errorText}
@@ -113,9 +141,10 @@ function renderTypedToolPart(
 
 interface MessageProps {
   message: UIMessage;
+  onApprove?: (approvalId: string, approved: boolean) => Promise<void>;
 }
 
-export function Message({ message }: MessageProps) {
+export function Message({ message, onApprove }: MessageProps) {
   if (message.role === "user") {
     const text =
       message.parts
@@ -151,7 +180,11 @@ export function Message({ message }: MessageProps) {
             return <Text key={partIndex}>{(part as any).text}</Text>;
           }
           if (part.type === "dynamic-tool") {
-            return renderDynamicToolPart(part as DynamicToolPart, partIndex);
+            return renderDynamicToolPart(
+              part as DynamicToolPart,
+              partIndex,
+              onApprove,
+            );
           }
           if (part.type.startsWith("tool-")) {
             const toolName = part.type.replace("tool-", "");
@@ -159,6 +192,7 @@ export function Message({ message }: MessageProps) {
               part as TypedToolPart,
               toolName,
               partIndex,
+              onApprove,
             );
           }
           return null;

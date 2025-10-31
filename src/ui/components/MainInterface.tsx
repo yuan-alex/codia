@@ -13,6 +13,7 @@ export function MainInterface({
   isCliMode: cliMode,
   cliMessage: cliMsg,
   error,
+  onApprove,
 }: MainInterfaceProps) {
   const isCliMode = cliMode ?? false;
   const cliMessage = cliMsg ?? "";
@@ -23,7 +24,7 @@ export function MainInterface({
       <Box flexDirection="column" flexGrow={1} paddingX={1}>
         {messages.map((message, index) => (
           <Box key={index} marginBottom={1}>
-            <Message message={message} />
+            <Message message={message} onApprove={onApprove} />
           </Box>
         ))}
 

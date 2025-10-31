@@ -103,10 +103,20 @@ export const bashTool = tool({
   inputSchema: z.object({
     command: z.string().describe("The bash command to execute"),
   }),
+  // Require approval for write commands (non-read-only)
+  needsApproval: async ({ command }) => {
+    const trimmedCommand = command.trim();
+    // Block dangerous commands immediately
+    if (isDangerousCommand(trimmedCommand)) {
+      throw new Error(`Command blocked for safety: ${trimmedCommand}`);
+    }
+    // Only require approval for write commands (non-read-only)
+    return !isReadOnlyCommand(trimmedCommand);
+  },
   execute: async ({ command }: { command: string }) => {
     const trimmedCommand = command.trim();
 
-    // Block obviously dangerous commands
+    // Block obviously dangerous commands (double-check)
     if (isDangerousCommand(trimmedCommand)) {
       throw new Error(`Command blocked for safety: ${trimmedCommand}`);
     }
@@ -123,15 +133,7 @@ export const bashTool = tool({
       return result.stdout || "Command executed successfully (no output)";
     }
 
-    // For write commands, ask for user confirmation
-    console.log(`⚠️  This command may modify files: ${trimmedCommand}`);
-    // For now, return true to avoid blocking, but this should be improved
-    const confirmed = true; // In a real app, you'd get user confirmation
-
-    if (!confirmed) {
-      return "Command cancelled by user";
-    }
-
+    // For write commands, execute (approval already handled by needsApproval)
     console.log(`🔧 Executing: ${trimmedCommand}`);
     const result = await executeBashCommand(trimmedCommand, 10000);
 

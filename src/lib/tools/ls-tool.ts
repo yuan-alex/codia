@@ -42,7 +42,7 @@ export const lsTool = tool({
       const k = 1024;
       const sizes = ["B", "K", "M", "G", "T"];
       const i = Math.floor(Math.log(bytes) / Math.log(k));
-      return Math.round(bytes / Math.pow(k, i)) + sizes[i];
+      return Math.round(bytes / Math.pow(k, i)) + sizes[i]!;
     };
 
     for (const item of items) {

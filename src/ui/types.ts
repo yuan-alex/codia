@@ -17,12 +17,14 @@ export interface MainInterfaceProps {
   isCliMode?: boolean;
   cliMessage?: string;
   error?: Error | null;
+  onApprove?: (approvalId: string, approved: boolean) => Promise<void>;
 }
 
 // Tool part type definitions based on AI SDK patterns
 export type ToolState =
   | "input-streaming"
   | "input-available"
+  | "approval-requested"
   | "output-available"
   | "output-error";
 

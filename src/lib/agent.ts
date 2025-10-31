@@ -1,9 +1,5 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
-import {
-  Experimental_Agent as Agent,
-  stepCountIs,
-  type ModelMessage,
-} from "ai";
+import { ToolLoopAgent, stepCountIs } from "ai";
 
 import { bashTool } from "./tools/bash-tool";
 import { catTool } from "./tools/cat-tool";
@@ -61,9 +57,9 @@ Keep responses concise and to the point.
 Don't use Markdown formatting.
 `;
 
-export const agent = new Agent({
+export const agent = new ToolLoopAgent({
   model: openaiCompatible("xai/grok-code-fast"),
-  system: SYSTEM_PROMPT,
+  instructions: SYSTEM_PROMPT,
   tools: {
     ls: lsTool,
     cat: catTool,
@@ -73,9 +69,3 @@ export const agent = new Agent({
   },
   stopWhen: stepCountIs(20),
 });
-
-export async function runAgent(messages: ModelMessage[]) {
-  return agent.stream({
-    messages,
-  });
-}

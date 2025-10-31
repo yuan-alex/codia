@@ -1,7 +1,10 @@
 import { useChat } from "@ai-sdk/react";
 import { useApp, useInput } from "ink";
 import { useCallback, useEffect, useState } from "react";
-import { DefaultChatTransport } from "ai";
+import {
+  DefaultChatTransport,
+  lastAssistantMessageIsCompleteWithApprovalResponses,
+} from "ai";
 
 import { MainInterface } from "./MainInterface";
 import { config } from "../../lib/config";
@@ -16,17 +19,63 @@ export function App() {
   const [showInput, setShowInput] = useState(!isCliMode);
   const { exit } = useApp();
 
-  const { messages, sendMessage, status, error } = useChat({
-    transport: new DefaultChatTransport({
-      api: `http://localhost:${config.port}/api/chat`,
-    }),
-  });
+  const { messages, sendMessage, status, error, addToolApprovalResponse } =
+    useChat({
+      transport: new DefaultChatTransport({
+        api: `http://localhost:${config.port}/api/chat`,
+      }),
+      sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
+    });
+
+  // Handle approval submission
+  const handleApprove = useCallback(
+    async (approvalId: string, approved: boolean) => {
+      addToolApprovalResponse({
+        id: approvalId,
+        approved,
+      });
+    },
+    [addToolApprovalResponse],
+  );
+
+  // Find the first pending approval ID
+  const getPendingApprovalId = useCallback(() => {
+    for (const message of messages) {
+      if (message.role === "assistant") {
+        for (const part of message.parts || []) {
+          const toolPart = part as any;
+          if (
+            toolPart.state === "approval-requested" &&
+            toolPart.approval?.id
+          ) {
+            return toolPart.approval.id;
+          }
+        }
+      }
+    }
+    return null;
+  }, [messages]);
 
   // Handle keyboard input (only in interactive mode)
   useInput(
     (input, key) => {
       if (key.escape) {
         exit();
+        return;
+      }
+
+      // Handle approval keys (Y/N) when there are pending approvals
+      const pendingApprovalId = getPendingApprovalId();
+      if (pendingApprovalId) {
+        const lowerInput = input.toLowerCase();
+        if (lowerInput === "y" || lowerInput === "yes") {
+          handleApprove(pendingApprovalId, true);
+          return;
+        }
+        if (lowerInput === "n" || lowerInput === "no") {
+          handleApprove(pendingApprovalId, false);
+          return;
+        }
       }
     },
     { isActive: !isCliMode },
@@ -91,6 +140,7 @@ export function App() {
       isCliMode={isCliMode}
       cliMessage={cliMessage}
       error={error}
+      onApprove={handleApprove}
     />
   );
 }

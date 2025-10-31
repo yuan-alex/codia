@@ -35,6 +35,8 @@ export function getStateDisplay(state: string | undefined): string {
       return "streaming...";
     case "input-available":
       return "running...";
+    case "approval-requested":
+      return "⏳ approval needed";
     case "output-available":
       return "✅";
     default:

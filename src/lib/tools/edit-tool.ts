@@ -102,6 +102,8 @@ export const editTool = tool({
       .default(false)
       .describe("Replace all occurrences (default: false)"),
   }),
+  // Require approval for all file edits since they modify files
+  needsApproval: true,
   execute: async ({ filePath, oldString, newString, replaceAll = false }) => {
     // Validate file path
     const { absolutePath } = validateFilePath(filePath);
