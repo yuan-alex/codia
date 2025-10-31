@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun run src/ui/index.tsx",
+    "dev": "bun run ./src/channels/tui/index.tsx",
     "test": "bun test",
     "test:tools": "bun test tools.test.ts",
     "format": "biome format --write ."
