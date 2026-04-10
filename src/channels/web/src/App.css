@@ -286,7 +286,7 @@ header h1::before {
 
 .input-form input:focus {
   border-color: var(--purple-500);
-  box-shadow: 0 0 0 3px rgba(192, 132, 252, 0.1);
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.1);
 }
 
 .input-form input::placeholder {
