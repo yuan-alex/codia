@@ -1,0 +1,356 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+/* Header */
+header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+header h1 {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--purple-500);
+  letter-spacing: -0.02em;
+}
+
+header h1::before {
+  content: "> ";
+  color: var(--text-muted);
+}
+
+/* Messages area */
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background: var(--bg-primary);
+}
+
+.messages::-webkit-scrollbar {
+  width: 6px;
+}
+
+.messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.messages::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+/* Empty state */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 28vh;
+  animation: fadeIn 0.5s ease;
+}
+
+.empty p {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.empty p::before {
+  content: "// ";
+  color: var(--text-muted);
+}
+
+/* Messages */
+.message {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: slideUp 0.25s ease;
+}
+
+.message .role {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  padding-left: 2px;
+}
+
+.message.user .role {
+  color: var(--cyan-400);
+}
+
+.message.assistant .role {
+  color: var(--green-400);
+}
+
+.message .bubble {
+  padding: 12px 16px;
+  border-radius: 8px;
+  line-height: 1.6;
+  font-size: 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-width: 100%;
+}
+
+.message.user .bubble {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--cyan-400);
+}
+
+.message.assistant .bubble {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--green-400);
+}
+
+/* Reasoning / thinking */
+.reasoning {
+  margin: 6px 0;
+  padding: 8px 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--purple-500);
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.reasoning-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.reasoning-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--purple-400);
+}
+
+.reasoning-text {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Tool calls */
+.tool-call {
+  margin: 8px 0 4px;
+  padding: 10px 14px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.tool-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.tool-header .tool-icon {
+  font-size: 10px;
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+}
+
+.tool-header .tool-icon.open {
+  transform: rotate(90deg);
+}
+
+.tool-name {
+  color: var(--yellow-400);
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.tool-name::before {
+  content: "fn ";
+  color: var(--purple-500);
+  font-weight: 400;
+}
+
+.tool-status {
+  margin-left: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.tool-status.done {
+  color: var(--green-400);
+}
+
+.tool-result {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+  max-height: 200px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+/* Typing indicator */
+.typing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-muted);
+  font-size: 13px;
+  padding-left: 2px;
+  animation: fadeIn 0.3s ease;
+}
+
+.typing-dots {
+  display: flex;
+  gap: 3px;
+}
+
+.typing-dots span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--purple-500);
+  opacity: 0.4;
+  animation: bounce 1.2s infinite;
+}
+
+.typing-dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.typing-dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+/* Input form */
+.input-form {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.input-form input {
+  flex: 1;
+  padding: 11px 16px;
+  background: var(--bg-input);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.input-form input:focus {
+  border-color: var(--purple-500);
+  box-shadow: 0 0 0 3px rgba(192, 132, 252, 0.1);
+}
+
+.input-form input::placeholder {
+  color: var(--text-muted);
+}
+
+.input-form button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: var(--purple-600);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+  flex-shrink: 0;
+}
+
+.input-form button:hover:not(:disabled) {
+  background: var(--purple-500);
+  transform: scale(1.04);
+}
+
+.input-form button:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.input-form button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.input-form button svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
