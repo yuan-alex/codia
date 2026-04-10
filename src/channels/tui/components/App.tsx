@@ -7,7 +7,7 @@ import {
 } from "ai";
 
 import { MainInterface } from "./MainInterface";
-import { config } from "../../lib/config";
+import { config } from "../../../lib/config";
 
 // Parse command line arguments
 const args = process.argv.slice(2);

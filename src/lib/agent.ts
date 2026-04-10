@@ -58,7 +58,7 @@ Don't use Markdown formatting.
 `;
 
 export const agent = new ToolLoopAgent({
-  model: openaiCompatible("xai/grok-code-fast"),
+  model: openaiCompatible("accounts/fireworks/routers/kimi-k2p5-turbo"),
   instructions: SYSTEM_PROMPT,
   tools: {
     ls: lsTool,
