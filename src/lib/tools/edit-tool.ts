@@ -16,27 +16,26 @@ function validateFilePath(filePath: string): {
   return { absolutePath, relativePath };
 }
 
-// Helper function to create backup
-function createBackup(filePath: string): string {
-  const backupPath = `${filePath}.backup.${Date.now()}`;
-  if (fs.existsSync(filePath)) {
-    fs.copyFileSync(filePath, backupPath);
-  }
-  return backupPath;
-}
-
 // Helper function to perform search and replace
 function searchReplaceInFile(
   filePath: string,
   oldString: string,
   newString: string,
   replaceAll: boolean = false,
-): { success: boolean; changes: number; backupPath: string } {
+): { success: boolean; changes: number } {
   if (!fs.existsSync(filePath)) {
     throw new Error(`File does not exist: ${filePath}`);
   }
 
   const content = fs.readFileSync(filePath, "utf8");
+
+  let newContent: string;
+  let changes: number;
+
+  if (replaceAll) {
+    // Replace all occurrences
+    const regex = new RegExp(
+      oldString.replace(/[.*+?^${}()|[\]\\]/g, "\\  const content = fs.readFileSync(filePath, "utf8");
   const backupPath = createBackup(filePath);
 
   let newContent: string;
@@ -62,11 +61,28 @@ function searchReplaceInFile(
 
   fs.writeFileSync(filePath, newContent, "utf8");
   return { success: true, changes, backupPath };
+}"),
+      "g",
+    );
+    newContent = content.replace(regex, newString);
+    changes = (content.match(regex) || []).length;
+  } else {
+    // Replace first occurrence only
+    const index = content.indexOf(oldString);
+    if (index === -1) {
+      throw new Error(`Text "${oldString}" not found in file`);
+    }
+    newContent = content.replace(oldString, newString);
+    changes = 1;
+  }
+
+  fs.writeFileSync(filePath, newContent, "utf8");
+  return { success: true, changes };
 }
 
 export const editTool = tool({
   description:
-    "Edit files using search and replace operations. Supports both single and multiple replacements with automatic backup creation.",
+    "Edit files using search and replace operations. Supports both single and multiple replacements.",
   inputSchema: z.object({
     filePath: z.string().describe("Path to the file to edit"),
     oldString: z
@@ -114,6 +130,6 @@ export const editTool = tool({
       replaceAll,
     );
 
-    return `Successfully edited ${filePath}: ${result.changes} change(s) made. Backup created at ${result.backupPath}`;
+    return `Successfully edited ${filePath}: ${result.changes} change(s) made.`;
   },
 });

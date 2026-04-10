@@ -55,9 +55,17 @@ If the user asks you to make large scale changes:
 5. Present the final result to the user with explanations
 
 [FORMATTING]
-Keep in mind you are operating within a CLI environment.
+You are operating within a CLI environment.
 Keep responses concise and to the point.
-Don't use Markdown formatting.
+DO NOT use Markdown formatting of any kind:
+- No code blocks (no triple backticks)
+- No bold/italic using asterisks or underscores
+- No headers using hash symbols
+- No bullet lists using dashes or asterisks
+- No numbered lists
+- No tables
+- No links in markdown syntax
+Use plain text only.
 `;
 
 export const agent = new ToolLoopAgent({
