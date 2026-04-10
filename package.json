@@ -5,16 +5,18 @@
   "private": true,
   "scripts": {
     "dev": "bun run ./src/channels/tui/index.tsx",
-    "web": "concurrently \"bun run ./src/server/index.ts\" \"cd src/channels/web && bunx vite\"",
+    "web": "concurrently \"bun --hot run ./src/server/index.ts\" \"cd src/channels/web && bunx vite\"",
     "test": "bun test",
     "test:tools": "bun test tools.test.ts",
     "format": "biome format --write ."
   },
   "dependencies": {
+    "@agentclientprotocol/sdk": "^0.18.2",
     "@ai-sdk/openai-compatible": "^1.0.22",
     "@ai-sdk/react": "^3.0.0-beta.85",
     "@inkjs/ui": "^2.0.0",
     "@types/react-dom": "^19.2.3",
+    "@zed-industries/claude-agent-acp": "^0.23.1",
     "ai": "^6.0.0-beta.85",
     "hono": "^4.9.12",
     "ink": "^6.3.1",

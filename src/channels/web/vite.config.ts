@@ -7,7 +7,20 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
-      "/api": "http://localhost:1337",
+      "/api/updates": {
+        target: "http://localhost:1337",
+        // SSE requires these settings to avoid buffering
+        configure: (proxy) => {
+          proxy.on("proxyRes", (proxyRes) => {
+            // Disable buffering for SSE
+            proxyRes.headers["cache-control"] = "no-cache";
+            proxyRes.headers["x-accel-buffering"] = "no";
+          });
+        },
+      },
+      "/api": {
+        target: "http://localhost:1337",
+      },
     },
   },
 })
