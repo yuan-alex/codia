@@ -21,6 +21,11 @@ process.on("SIGINT", () => {
   process.exit(0);
 });
 
+// Clear screen on resize so Ink doesn't leave stale/interleaved lines
+process.stdout.on("resize", () => {
+  process.stdout.write("\x1b[2J\x1b[H");
+});
+
 // Check if raw mode is supported
 if (process.stdin.isTTY) {
   render(<App />);

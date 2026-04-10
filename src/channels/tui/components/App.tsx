@@ -61,6 +61,7 @@ export function App() {
     (input, key) => {
       if (key.escape) {
         exit();
+        process.exit(0);
         return;
       }
 
@@ -93,7 +94,10 @@ export function App() {
         trimmedLowerInput === "quit" ||
         trimmedLowerInput === "q"
       ) {
-        setTimeout(() => exit(), 500);
+        setTimeout(() => {
+          exit();
+          process.exit(0);
+        }, 500);
         return;
       }
 
@@ -115,6 +119,7 @@ export function App() {
         setTimeout(() => {
           console.log("\n=== CLI Execution Complete ===");
           exit();
+          process.exit(0);
         }, 1000);
       }
     },
