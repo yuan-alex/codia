@@ -7,19 +7,19 @@ A coding agent CLI that helps users understand and modify their codebases. Built
 Prerequisites: [Bun](https://bun.sh/)
 
 1. Clone the repository:
-   ```bash
+  ```bash
    git clone <repo-url>
    cd codia
-   ```
-
+  ```
 2. Install dependencies:
-   ```bash
+  ```bash
    bun install
-   ```
+  ```
 
 ## Usage
 
 Start the interactive CLI:
+
 ```bash
 bun run dev
 ```
