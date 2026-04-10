@@ -35,33 +35,7 @@ function searchReplaceInFile(
   if (replaceAll) {
     // Replace all occurrences
     const regex = new RegExp(
-      oldString.replace(/[.*+?^${}()|[\]\\]/g, "\\  const content = fs.readFileSync(filePath, "utf8");
-  const backupPath = createBackup(filePath);
-
-  let newContent: string;
-  let changes: number;
-
-  if (replaceAll) {
-    // Replace all occurrences
-    const regex = new RegExp(
       oldString.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
-      "g",
-    );
-    newContent = content.replace(regex, newString);
-    changes = (content.match(regex) || []).length;
-  } else {
-    // Replace first occurrence only
-    const index = content.indexOf(oldString);
-    if (index === -1) {
-      throw new Error(`Text "${oldString}" not found in file`);
-    }
-    newContent = content.replace(oldString, newString);
-    changes = 1;
-  }
-
-  fs.writeFileSync(filePath, newContent, "utf8");
-  return { success: true, changes, backupPath };
-}"),
       "g",
     );
     newContent = content.replace(regex, newString);
