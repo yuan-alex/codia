@@ -2,6 +2,8 @@ import { tool } from "ai";
 import { spawn } from "child_process";
 import { z } from "zod";
 
+import { bashReferencesEnvPath } from "../sensitive-paths";
+
 // Helper function to check if command is read-only
 function isReadOnlyCommand(command: string): boolean {
   const readOnlyCommands = [
@@ -106,6 +108,11 @@ export const bashTool = tool({
   // Require approval for write commands (non-read-only)
   needsApproval: async ({ command }) => {
     const trimmedCommand = command.trim();
+    if (bashReferencesEnvPath(trimmedCommand)) {
+      throw new Error(
+        "Command blocked: cannot access .env or environment secrets files",
+      );
+    }
     // Block dangerous commands immediately
     if (isDangerousCommand(trimmedCommand)) {
       throw new Error(`Command blocked for safety: ${trimmedCommand}`);
@@ -115,6 +122,12 @@ export const bashTool = tool({
   },
   execute: async ({ command }: { command: string }) => {
     const trimmedCommand = command.trim();
+
+    if (bashReferencesEnvPath(trimmedCommand)) {
+      throw new Error(
+        "Command blocked: cannot access .env or environment secrets files",
+      );
+    }
 
     // Block obviously dangerous commands (double-check)
     if (isDangerousCommand(trimmedCommand)) {

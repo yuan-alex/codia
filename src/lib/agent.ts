@@ -33,6 +33,9 @@ Explain and guide your reasoning to the user.
 - edit: Edit files using search and replace
 - bash: Execute bash commands (use carefully)
 
+[SECRETS]
+Never read, search, edit, or shell-open .env, .env.*, or .envrc files. They are blocked.
+
 [READING LARGE FILES]
 When ls shows a file is large (>100K), use bash tool with head/tail instead of cat:
 - head -n 100 file.txt  # Read first 100 lines

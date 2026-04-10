@@ -3,8 +3,11 @@ import fs from "fs";
 import path from "path";
 import { z } from "zod";
 
+import { assertAgentPathAllowed } from "../sensitive-paths";
+
 // Helper functions for grep
 function searchInFile(filePath: string, pattern: string): string {
+  assertAgentPathAllowed(filePath);
   try {
     const content = fs.readFileSync(filePath, "utf8");
     const lines = content.split("\n");
@@ -94,7 +97,7 @@ export const grepTool = tool({
     // If specific file provided, validate it
     if (filePath) {
       const absolutePath = path.resolve(filePath);
-      const relativePath = path.relative(cwd, absolutePath);
+      assertAgentPathAllowed(absolutePath);
 
       if (!fs.existsSync(absolutePath)) {
         throw new Error(`File does not exist: ${filePath}`);

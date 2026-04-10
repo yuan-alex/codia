@@ -3,6 +3,8 @@ import fs from "fs";
 import path from "path";
 import { z } from "zod";
 
+import { assertAgentPathAllowed } from "../sensitive-paths";
+
 export const catTool = tool({
   description:
     "Read and display file contents. For large files (>100K or >1000 lines), use bash tool with 'head' or 'tail' commands instead (e.g., 'head -n 100 file.txt' or 'tail -n 50 file.txt').",
@@ -10,31 +12,8 @@ export const catTool = tool({
     filePath: z.string().describe("Path to the file to read"),
   }),
   execute: async ({ filePath }) => {
-    const cwd = process.cwd();
     const absolutePath = path.resolve(filePath);
-    const relativePath = path.relative(cwd, absolutePath);
-
-    // Block access to sensitive file types
-    const sensitiveExtensions = [".key", ".pem", ".crt", ".p12", ".ppk"];
-    const sensitiveFiles = [
-      "passwd",
-      "shadow",
-      "authorized_keys",
-      "id_rsa",
-      "id_dsa",
-      "id_ecdsa",
-      "id_ed25519",
-    ];
-
-    const fileName = path.basename(absolutePath).toLowerCase();
-    const fileExt = path.extname(absolutePath).toLowerCase();
-
-    if (
-      sensitiveExtensions.includes(fileExt) ||
-      sensitiveFiles.some((sf) => fileName.includes(sf))
-    ) {
-      throw new Error(`Access denied: Cannot read potentially sensitive file`);
-    }
+    assertAgentPathAllowed(absolutePath);
 
     if (!fs.existsSync(absolutePath)) {
       throw new Error(`File does not exist: ${filePath}`);

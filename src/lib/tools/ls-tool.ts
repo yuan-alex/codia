@@ -3,6 +3,11 @@ import fs from "fs";
 import path from "path";
 import { z } from "zod";
 
+import {
+  assertAgentPathAllowed,
+  isEnvSecretsFileName,
+} from "../sensitive-paths";
+
 export const lsTool = tool({
   description: "List directory contents",
   inputSchema: z.object({
@@ -17,6 +22,8 @@ export const lsTool = tool({
     const cwd = process.cwd();
     const absolutePath = path.resolve(targetPath ?? ".");
     const relativePath = path.relative(cwd, absolutePath);
+
+    assertAgentPathAllowed(absolutePath);
 
     if (!fs.existsSync(absolutePath)) {
       throw new Error(`Path does not exist: ${targetPath}`);
@@ -46,6 +53,7 @@ export const lsTool = tool({
     };
 
     for (const item of items) {
+      if (isEnvSecretsFileName(item)) continue;
       const itemPath = path.join(absolutePath, item);
       const itemStats = fs.statSync(itemPath);
       const isDir = itemStats.isDirectory();

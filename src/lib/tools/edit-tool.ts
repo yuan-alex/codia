@@ -3,7 +3,8 @@ import fs from "fs";
 import path from "path";
 import { z } from "zod";
 
-// Helper function to validate file path security
+import { assertAgentPathAllowed } from "../sensitive-paths";
+
 function validateFilePath(filePath: string): {
   absolutePath: string;
   relativePath: string;
@@ -11,29 +12,7 @@ function validateFilePath(filePath: string): {
   const cwd = process.cwd();
   const absolutePath = path.resolve(filePath);
   const relativePath = path.relative(cwd, absolutePath);
-
-  // Block access to sensitive files
-  const sensitiveExtensions = [".key", ".pem", ".crt", ".p12", ".ppk", ".env"];
-  const sensitiveFiles = [
-    "passwd",
-    "shadow",
-    "authorized_keys",
-    "id_rsa",
-    "id_dsa",
-    "id_ecdsa",
-    "id_ed25519",
-  ];
-
-  const fileName = path.basename(absolutePath).toLowerCase();
-  const fileExt = path.extname(absolutePath).toLowerCase();
-
-  if (
-    sensitiveExtensions.includes(fileExt) ||
-    sensitiveFiles.some((sf) => fileName.includes(sf))
-  ) {
-    throw new Error(`Access denied: Cannot edit potentially sensitive file`);
-  }
-
+  assertAgentPathAllowed(absolutePath);
   return { absolutePath, relativePath };
 }
 
