@@ -112,6 +112,7 @@ export default function App() {
           key={activeSessionId ?? `new-${newSessionKey}`}
           sessionId={activeSessionId}
           onSessionReady={handleSessionReady}
+          onPromptDone={fetchSessions}
           onDebugInfo={import.meta.env.DEV ? setChatDebug : undefined}
         />
       </div>

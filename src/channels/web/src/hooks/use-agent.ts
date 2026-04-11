@@ -56,7 +56,7 @@ export type ModelInfo = {
   description?: string;
 };
 
-type Status = "connecting" | "ready" | "streaming" | "error";
+type Status = "connecting" | "loading" | "ready" | "streaming" | "error";
 
 type ServerMessage =
   | {
@@ -294,6 +294,7 @@ export function useAgent(sessionId: string | null) {
 
     ws.onopen = () => {
       if (sessionId) {
+        setStatus("loading");
         ws.send(JSON.stringify({ type: "session/load", sessionId }));
       } else {
         ws.send(JSON.stringify({ type: "session/new" }));
@@ -327,7 +328,7 @@ export function useAgent(sessionId: string | null) {
         console.error("[agent] Error:", msg.message);
         setError(msg.message);
         // Use ref to avoid stale closure over status
-        if (statusRef.current === "connecting" && sessionId) {
+        if ((statusRef.current === "connecting" || statusRef.current === "loading") && sessionId) {
           ws.send(JSON.stringify({ type: "session/new" }));
           return;
         }

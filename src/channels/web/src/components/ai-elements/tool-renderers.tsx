@@ -321,55 +321,45 @@ function ReadToolDisplay({ part }: { part: ToolPart }) {
   const lang = filePath ? langFromPath(filePath) : ("text" as BundledLanguage);
   const isDone = part.state === "completed";
 
-  if (!isDone || !textContent) {
-    return (
-      <ToolShell part={part}>
-        {filePath && (
-          <span className="font-mono text-xs text-muted-foreground">
-            {filePath}
-          </span>
-        )}
-      </ToolShell>
-    );
-  }
-
-  const lines = textContent.split("\n");
-  const isLong = lines.length > MAX_LINES_COLLAPSED;
-  const displayCode = expanded || !isLong
-    ? textContent
-    : lines.slice(0, MAX_LINES_COLLAPSED).join("\n");
-
   return (
     <ToolShell part={part}>
-      <CodeBlockContainer language={lang}>
-        <CodeBlockHeader>
-          <CodeBlockTitle>
-            <CodeBlockFilename>{basename(filePath)}</CodeBlockFilename>
-            <span className="text-muted-foreground/60">{lines.length} lines</span>
-          </CodeBlockTitle>
-          <CodeBlockActions>
-            <CodeBlockCopyButton />
-          </CodeBlockActions>
-        </CodeBlockHeader>
-        <div className={cn(!expanded && isLong && "relative")}>
-          <CodeBlockContent
-            code={displayCode}
-            language={lang}
-            showLineNumbers={false}
-          />
-          {isLong && !expanded && (
-            <div className="absolute inset-x-0 bottom-0 flex items-end justify-center h-16 bg-gradient-to-t from-background to-transparent">
-              <button
-                type="button"
-                onClick={() => setExpanded(true)}
-                className="mb-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors px-3 py-1 rounded-full bg-muted border"
-              >
-                Show all {lines.length} lines
-              </button>
-            </div>
+      {filePath && (
+        <button
+          type="button"
+          onClick={() => isDone && textContent && setExpanded((e) => !e)}
+          className={cn(
+            "font-mono text-xs text-muted-foreground",
+            isDone && textContent && "hover:text-foreground cursor-pointer",
           )}
+        >
+          {filePath}
+          {isDone && textContent && (
+            <span className="ml-1.5 text-muted-foreground/50">
+              {expanded ? "▾" : "▸"}
+            </span>
+          )}
+        </button>
+      )}
+      {expanded && textContent && (
+        <div className="[&_pre]:!text-[10px] [&_code]:!text-[10px]">
+          <CodeBlockContainer language={lang}>
+            <CodeBlockHeader>
+              <CodeBlockTitle>
+                <CodeBlockFilename>{basename(filePath)}</CodeBlockFilename>
+                <span className="text-muted-foreground/60">{textContent.split("\n").length} lines</span>
+              </CodeBlockTitle>
+              <CodeBlockActions>
+                <CodeBlockCopyButton />
+              </CodeBlockActions>
+            </CodeBlockHeader>
+            <CodeBlockContent
+              code={textContent}
+              language={lang}
+              showLineNumbers={false}
+            />
+          </CodeBlockContainer>
         </div>
-      </CodeBlockContainer>
+      )}
     </ToolShell>
   );
 }
@@ -435,18 +425,32 @@ function ExecuteToolDisplay({ part }: { part: ToolPart }) {
 }
 
 function SearchToolDisplay({ part }: { part: ToolPart }) {
+  const [expanded, setExpanded] = useState(false);
   const pattern = (part.input.pattern as string) ?? "";
   const textContent = extractText(part.content);
+  const isDone = part.state === "completed";
 
   return (
     <ToolShell part={part}>
       {pattern && (
-        <div className="flex items-center gap-2 px-1 text-xs">
+        <button
+          type="button"
+          onClick={() => isDone && textContent && setExpanded((e) => !e)}
+          className={cn(
+            "flex items-center gap-2 px-1 text-xs",
+            isDone && textContent && "hover:text-foreground cursor-pointer",
+          )}
+        >
           <SearchIcon className="size-3 text-muted-foreground" />
           <code className="font-mono text-muted-foreground">{pattern}</code>
-        </div>
+          {isDone && textContent && (
+            <span className="text-muted-foreground/50">
+              {expanded ? "▾" : "▸"}
+            </span>
+          )}
+        </button>
       )}
-      {textContent && (
+      {expanded && textContent && (
         <pre className="whitespace-pre-wrap break-words text-xs text-muted-foreground font-mono p-3 overflow-auto max-h-80 rounded-md border bg-muted/30">
           {textContent}
         </pre>

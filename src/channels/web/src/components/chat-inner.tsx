@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { SparklesIcon } from "lucide-react";
 import { useAgent, type AgentMessage } from "@/hooks/use-agent";
 
@@ -97,14 +97,17 @@ export type ChatDebugInfo = {
 export function ChatInner({
   sessionId,
   onSessionReady,
+  onPromptDone,
   onDebugInfo,
 }: {
   sessionId: string | null;
   onSessionReady?: (id: string) => void;
+  onPromptDone?: () => void;
   onDebugInfo?: (info: ChatDebugInfo) => void;
 }) {
   const [input, setInput] = useState("");
   const agent = useAgent(sessionId);
+  const prevStatusRef = useRef(agent.status);
 
   // Notify parent when session is resolved
   useEffect(() => {
@@ -112,6 +115,14 @@ export function ChatInner({
       onSessionReady?.(agent.sessionId);
     }
   }, [agent.sessionId]);
+
+  // Notify parent when a prompt completes
+  useEffect(() => {
+    if (prevStatusRef.current === "streaming" && agent.status === "ready") {
+      onPromptDone?.();
+    }
+    prevStatusRef.current = agent.status;
+  }, [agent.status]);
 
   // Debug info
   useEffect(() => {
@@ -128,6 +139,7 @@ export function ChatInner({
   }, [agent.status, agent.messages.length, agent.selectedModel, agent.error]);
 
   const isStreaming = agent.status === "streaming";
+  const isLoading = agent.status === "loading";
   const isReady = agent.status === "ready";
 
   const handleSubmit = (message: PromptInputMessage) => {
@@ -148,25 +160,38 @@ export function ChatInner({
 
   return (
     <div className="flex flex-col h-full">
+      {isLoading && (
+        <div className="h-0.5 w-full overflow-hidden bg-muted">
+          <div className="h-full w-1/3 animate-[shimmer_1.5s_ease-in-out_infinite] bg-primary/40 rounded-full" />
+        </div>
+      )}
       <Conversation>
         <ConversationContent>
-          {agent.messages.length === 0 ? (
+          {agent.messages.length === 0 && !isLoading ? (
             <ConversationEmptyState
               title="How can I help?"
               description="Ask me anything about your codebase."
             />
           ) : (
-            agent.messages.map((message, index) => (
-              <Message from={message.role} key={message.id}>
-                <MessageContent>
-                  <MessageParts
-                    message={message}
-                    isLastMessage={index === agent.messages.length - 1}
-                    isStreaming={isStreaming}
-                  />
-                </MessageContent>
-              </Message>
-            ))
+            <>
+              {isLoading && (
+                <div className="flex items-center gap-2 px-4 py-2 text-xs text-muted-foreground">
+                  <Spinner className="size-3" />
+                  <span>Restoring conversation...</span>
+                </div>
+              )}
+              {agent.messages.map((message, index) => (
+                <Message from={message.role} key={message.id}>
+                  <MessageContent>
+                    <MessageParts
+                      message={message}
+                      isLastMessage={index === agent.messages.length - 1}
+                      isStreaming={isStreaming}
+                    />
+                  </MessageContent>
+                </Message>
+              ))}
+            </>
           )}
 
           {isStreaming &&
@@ -184,7 +209,7 @@ export function ChatInner({
         <PromptInputBody>
           <PromptInputTextarea
             value={input}
-            placeholder={isReady ? "Message Codia..." : "Thinking..."}
+            placeholder={isLoading ? "Loading conversation..." : isReady ? "Message Codia..." : "Thinking..."}
             onChange={(e) => setInput(e.currentTarget.value)}
             disabled={!isReady}
           />
