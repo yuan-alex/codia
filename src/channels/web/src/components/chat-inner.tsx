@@ -1,7 +1,5 @@
-import { useState, useRef, useEffect, useMemo } from "react";
-import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
-import type { UIMessage } from "ai";
+import { useState, useEffect } from "react";
+import { useAgent, type AgentMessage } from "@/hooks/use-agent";
 
 import {
   Conversation,
@@ -40,25 +38,18 @@ import {
   ReasoningTrigger,
 } from "@/components/ai-elements/reasoning";
 import { Spinner } from "@/components/ui/spinner";
-import type { ChatDebugInfo } from "./chat-view";
-
-type ModelInfo = {
-  modelId: string;
-  name: string;
-  description?: string;
-};
 
 function MessageParts({
   message,
   isLastMessage,
   isStreaming,
 }: {
-  message: UIMessage;
+  message: AgentMessage;
   isLastMessage: boolean;
   isStreaming: boolean;
 }) {
   const reasoningParts = message.parts.filter(
-    (part) => part.type === "reasoning"
+    (part) => part.type === "reasoning",
   );
   const reasoningText = reasoningParts.map((part) => part.text).join("\n\n");
   const hasReasoning = reasoningParts.length > 0;
@@ -88,7 +79,11 @@ function MessageParts({
           const isDone = part.state === "output-available";
           return (
             <Tool key={`${message.id}-tool-${i}`} defaultOpen={false}>
-              <ToolHeader type={`tool-${part.toolName}`} state={part.state} toolName={part.toolName} />
+              <ToolHeader
+                type="dynamic-tool"
+                state={part.state}
+                toolName={part.toolName}
+              />
               <ToolContent>
                 <ToolOutput output={isDone ? part.output : undefined} />
               </ToolContent>
@@ -102,91 +97,93 @@ function MessageParts({
   );
 }
 
+export type ChatDebugInfo = {
+  status: string;
+  error: string | null;
+  messageCount: number;
+  selectedModel: string;
+  models: string[];
+  lastMessageRole?: string;
+  messages: AgentMessage[];
+  sessionId: string | null;
+};
+
 export function ChatInner({
-  chatId,
-  initialMessages,
-  models,
+  sessionId,
+  onSessionReady,
   onDebugInfo,
 }: {
-  chatId?: string;
-  initialMessages: any[];
-  models: ModelInfo[];
+  sessionId: string | null;
+  onSessionReady?: (id: string) => void;
   onDebugInfo?: (info: ChatDebugInfo) => void;
 }) {
   const [input, setInput] = useState("");
-  const [selectedModel, setSelectedModel] = useState(models[0]?.modelId ?? "");
+  const agent = useAgent(sessionId);
 
-  const transport = useMemo(
-    () =>
-      new DefaultChatTransport({
-        api: "/api/chat",
-        prepareSendMessagesRequest: ({ messages: msgs }) => ({
-          body: {
-            messages: msgs.length > 0 ? [msgs[msgs.length - 1]] : msgs,
-          },
-        }),
-      }),
-    []
-  );
+  // Notify parent when session is resolved
+  useEffect(() => {
+    if (agent.sessionId && agent.sessionId !== sessionId) {
+      onSessionReady?.(agent.sessionId);
+    }
+  }, [agent.sessionId]);
 
-  const { messages, status, sendMessage } = useChat({
-    id: chatId,
-    transport,
-    messages: initialMessages.length > 0 ? initialMessages : undefined,
-  });
-
-  const isStreaming = status === "streaming";
-
-  const messagesRef = useRef(messages);
-  messagesRef.current = messages;
-
+  // Debug info
   useEffect(() => {
     onDebugInfo?.({
-      status,
-      messageCount: messagesRef.current.length,
-      selectedModel,
-      models: models.map((m) => m.modelId),
-      lastMessageRole: messagesRef.current.at(-1)?.role,
-      historyLength: initialMessages.length,
-      messages: messagesRef.current,
+      status: agent.status,
+      error: agent.error,
+      messageCount: agent.messages.length,
+      selectedModel: agent.selectedModel,
+      models: agent.models.map((m) => m.modelId),
+      lastMessageRole: agent.messages.at(-1)?.role,
+      messages: agent.messages,
+      sessionId: agent.sessionId,
     });
-  }, [status, messages.length, selectedModel]);
+  }, [agent.status, agent.messages.length, agent.selectedModel, agent.error]);
 
-  const handleModelChange = async (modelId: string) => {
-    setSelectedModel(modelId);
-    try {
-      await fetch("/api/model", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ modelId }),
-      });
-    } catch (err) {
-      console.error("Failed to set model:", err);
-    }
-  };
+  const isStreaming = agent.status === "streaming";
+  const isReady = agent.status === "ready";
 
   const handleSubmit = (message: PromptInputMessage) => {
     if (!message.text.trim()) return;
-    sendMessage({ text: message.text });
+    agent.sendMessage(message.text);
     setInput("");
   };
+
+  if (agent.status === "connecting") {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <p className="text-muted-foreground text-sm">Connecting...</p>
+      </div>
+    );
+  }
+
+  if (agent.status === "error" && agent.messages.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <p className="text-destructive text-sm">
+          Failed to connect: {agent.error}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full">
       <Conversation>
         <ConversationContent>
-          {messages.length === 0 ? (
+          {agent.messages.length === 0 ? (
             <ConversationEmptyState
               title="How can I help?"
               description="Ask me anything about your codebase."
             />
           ) : (
-            messages.map((message, index) => (
+            agent.messages.map((message, index) => (
               <Message from={message.role} key={message.id}>
                 <MessageContent>
                   <MessageParts
                     message={message}
-                    isLastMessage={index === messages.length - 1}
+                    isLastMessage={index === agent.messages.length - 1}
                     isStreaming={isStreaming}
                   />
                 </MessageContent>
@@ -194,7 +191,10 @@ export function ChatInner({
             ))
           )}
 
-          {status === "submitted" && <Spinner />}
+          {isStreaming &&
+            agent.messages[agent.messages.length - 1]?.role !== "assistant" && (
+              <Spinner />
+            )}
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
@@ -206,24 +206,24 @@ export function ChatInner({
         <PromptInputBody>
           <PromptInputTextarea
             value={input}
-            placeholder={status === "ready" ? "Message Codia..." : "Thinking..."}
+            placeholder={isReady ? "Message Codia..." : "Thinking..."}
             onChange={(e) => setInput(e.currentTarget.value)}
-            disabled={!status || status === "submitted"}
+            disabled={!isReady}
           />
         </PromptInputBody>
         <PromptInputFooter>
           <PromptInputTools>
-            {models.length > 0 && (
+            {agent.models.length > 0 && (
               <PromptInputSelect
-                value={selectedModel}
-                onValueChange={handleModelChange}
+                value={agent.selectedModel}
+                onValueChange={agent.changeModel}
                 disabled={isStreaming}
               >
                 <PromptInputSelectTrigger>
                   <PromptInputSelectValue />
                 </PromptInputSelectTrigger>
                 <PromptInputSelectContent>
-                  {models.map((m) => (
+                  {agent.models.map((m) => (
                     <PromptInputSelectItem key={m.modelId} value={m.modelId}>
                       {m.name}
                     </PromptInputSelectItem>
@@ -234,7 +234,7 @@ export function ChatInner({
           </PromptInputTools>
           <PromptInputSubmit
             status={isStreaming ? "streaming" : "ready"}
-            disabled={!input.trim() && status === "ready"}
+            disabled={!input.trim() || !isReady}
           />
         </PromptInputFooter>
       </PromptInput>

@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 
-import { ChatView, type ChatDebugInfo } from "./components/chat-view";
+import { ChatInner, type ChatDebugInfo } from "./components/chat-inner";
 import { DebugPanel } from "./components/debug-panel";
 import { Plus, MessageSquare } from "lucide-react";
 
@@ -12,23 +12,59 @@ type SessionListItem = {
   lastUpdated?: string;
 };
 
+function getSessionIdFromUrl(): string | null {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("session");
+}
+
+function setSessionIdInUrl(sessionId: string | null) {
+  const url = new URL(window.location.href);
+  if (sessionId) {
+    url.searchParams.set("session", sessionId);
+  } else {
+    url.searchParams.delete("session");
+  }
+  window.history.replaceState({}, "", url.toString());
+}
+
 export default function App() {
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(
+    getSessionIdFromUrl,
+  );
   const [newSessionKey, setNewSessionKey] = useState(0);
   const [chatDebug, setChatDebug] = useState<ChatDebugInfo | null>(null);
 
-  useEffect(() => {
+  const fetchSessions = useCallback(() => {
     fetch("/api/sessions")
       .then((r) => r.json())
       .then((data) => setSessions(data.sessions || []))
       .catch((err) => console.error("Failed to fetch sessions:", err));
   }, []);
 
+  useEffect(() => {
+    fetchSessions();
+  }, [fetchSessions]);
+
   const startNewSession = () => {
     setActiveSessionId(null);
+    setSessionIdInUrl(null);
     setNewSessionKey((k) => k + 1);
   };
+
+  const selectSession = (id: string) => {
+    setActiveSessionId(id);
+    setSessionIdInUrl(id);
+  };
+
+  const handleSessionReady = useCallback(
+    (id: string) => {
+      setActiveSessionId(id);
+      setSessionIdInUrl(id);
+      fetchSessions();
+    },
+    [fetchSessions],
+  );
 
   return (
     <div className="flex h-screen">
@@ -38,7 +74,11 @@ export default function App() {
           <h1 className="text-lg font-semibold text-primary">Codia</h1>
         </div>
         <div className="p-3">
-          <Button onClick={startNewSession} className="w-full justify-start gap-2" variant="outline">
+          <Button
+            onClick={startNewSession}
+            className="w-full justify-start gap-2"
+            variant="outline"
+          >
             <Plus className="size-4" />
             New Chat
           </Button>
@@ -48,13 +88,17 @@ export default function App() {
             {sessions.map((s) => (
               <button
                 key={s.sessionId}
-                onClick={() => setActiveSessionId(s.sessionId)}
+                onClick={() => selectSession(s.sessionId)}
                 className={`flex items-center gap-2 w-full rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-muted ${
-                  activeSessionId === s.sessionId ? "bg-muted font-medium" : "text-muted-foreground"
+                  activeSessionId === s.sessionId
+                    ? "bg-muted font-medium"
+                    : "text-muted-foreground"
                 }`}
               >
                 <MessageSquare className="size-4 shrink-0" />
-                <span className="truncate">{s.title || s.sessionId.slice(0, 8)}</span>
+                <span className="truncate">
+                  {s.title || s.sessionId.slice(0, 8)}
+                </span>
               </button>
             ))}
           </div>
@@ -63,33 +107,27 @@ export default function App() {
 
       {/* Main chat area */}
       <div className="flex-1 min-w-0">
-        <ChatView
+        <ChatInner
           key={activeSessionId ?? `new-${newSessionKey}`}
           sessionId={activeSessionId}
+          onSessionReady={handleSessionReady}
           onDebugInfo={import.meta.env.DEV ? setChatDebug : undefined}
         />
       </div>
 
-      {import.meta.env.DEV && (
+      {import.meta.env.DEV && chatDebug && (
         <DebugPanel
           data={{
             activeSessionId: activeSessionId ?? "(new session)",
             sessionCount: sessions.length,
-            sessions: sessions.map((s) => ({
-              id: s.sessionId.slice(0, 8),
-              title: s.title ?? null,
-            })),
-            ...(chatDebug ? {
-              "chat.status": chatDebug.status,
-              "chat.messageCount": chatDebug.messageCount,
-              "chat.selectedModel": chatDebug.selectedModel,
-              "chat.lastMessageRole": chatDebug.lastMessageRole ?? "none",
-              "chat.historyLength": chatDebug.historyLength,
-              "chat.availableModels": chatDebug.models,
-              "chat.messages": chatDebug.messages,
-            } : {
-              "chat": "loading...",
-            }),
+            "agent.status": chatDebug.status,
+            "agent.sessionId": chatDebug.sessionId,
+            "agent.error": chatDebug.error,
+            "agent.messageCount": chatDebug.messageCount,
+            "agent.selectedModel": chatDebug.selectedModel,
+            "agent.lastMessageRole": chatDebug.lastMessageRole ?? "none",
+            "agent.models": chatDebug.models,
+            "agent.messages": chatDebug.messages,
           }}
         />
       )}

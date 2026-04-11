@@ -48,8 +48,7 @@ export function bashReferencesEnvPath(command: string): boolean {
   const s = command.trim();
   if (!s) return false;
 
-  const tokens =
-    s.match(/(?:[^\s"']+|"[^"]*"|'[^']*'|`[^`]*`)+/g) ?? [];
+  const tokens = s.match(/(?:[^\s"']+|"[^"]*"|'[^']*'|`[^`]*`)+/g) ?? [];
   for (const raw of tokens) {
     const t = raw.replace(/^["'`]|["'`]$/g, "");
     if (!t) continue;

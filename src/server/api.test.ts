@@ -89,7 +89,8 @@ describe("API", () => {
         if (parsed.type) partTypes.add(parsed.type);
       } catch {
         // not all lines are JSON — could be SSE event lines
-        if (line.startsWith("event:")) partTypes.add(`sse:${line.slice(6).trim()}`);
+        if (line.startsWith("event:"))
+          partTypes.add(`sse:${line.slice(6).trim()}`);
       }
     }
     console.log(`  Part types: ${[...partTypes].join(", ")}`);
@@ -145,7 +146,9 @@ describe("API", () => {
 
     // Log a summary
     const roles = data.history.map((m: any) => m.role);
-    const partTypes = data.history.flatMap((m: any) => m.parts.map((p: any) => p.type));
+    const partTypes = data.history.flatMap((m: any) =>
+      m.parts.map((p: any) => p.type),
+    );
     console.log(`  Roles: ${roles.join(", ")}`);
     console.log(`  Part types: ${[...new Set(partTypes)].join(", ")}`);
   }, 60_000);
