@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { memo, useState, useEffect, useMemo, useRef } from "react";
 import {
   SparklesIcon,
   FileSearchIcon,
@@ -36,6 +36,21 @@ import {
   PromptInputBody,
 } from "@/components/ai-elements/prompt-input";
 import { ToolDisplay } from "@/components/ai-elements/tool-renderers";
+
+// Memoized wrapper around the (non-memoized) vendored ToolDisplay. When
+// use-agent preserves part identity across streaming flushes, unchanged tool
+// subtrees bail out of re-render entirely — which also avoids the O(m·n) LCS
+// computation inside DiffContent on every chunk.
+type ToolPartProp = Extract<
+  AgentMessage["parts"][number],
+  { type: "dynamic-tool" }
+>;
+const MemoToolDisplay = memo(
+  function MemoToolDisplay({ part }: { part: ToolPartProp }) {
+    return <ToolDisplay part={part} />;
+  },
+  (prev, next) => prev.part === next.part,
+);
 import {
   Reasoning,
   ReasoningContent,
@@ -175,53 +190,60 @@ function EmptyState({ onSuggestion }: { onSuggestion: (text: string) => void }) 
   );
 }
 
-function MessageParts({
-  message,
-  isLastMessage,
-  isStreaming,
-}: {
-  message: AgentMessage;
-  isLastMessage: boolean;
-  isStreaming: boolean;
-}) {
-  const reasoningParts = message.parts.filter(
-    (part) => part.type === "reasoning",
-  );
-  const reasoningText = reasoningParts.map((part) => part.text).join("\n\n");
-  const hasReasoning = reasoningParts.length > 0;
+const MessageParts = memo(
+  function MessageParts({
+    message,
+    isLastMessage,
+    isStreaming,
+  }: {
+    message: AgentMessage;
+    isLastMessage: boolean;
+    isStreaming: boolean;
+  }) {
+    // Memoized: runs only when parts[] changes identity.
+    const reasoningText = useMemo(
+      () =>
+        message.parts
+          .filter((part) => part.type === "reasoning")
+          .map((part) => part.text)
+          .join("\n\n"),
+      [message.parts],
+    );
+    const hasReasoning = reasoningText.length > 0;
 
-  const lastPart = message.parts.at(-1);
-  const isReasoningStreaming =
-    isLastMessage && isStreaming && lastPart?.type === "reasoning";
+    const lastPart = message.parts.at(-1);
+    const isReasoningStreaming =
+      isLastMessage && isStreaming && lastPart?.type === "reasoning";
 
-  return (
-    <>
-      {hasReasoning && (
-        <Reasoning className="w-full" isStreaming={isReasoningStreaming}>
-          <ReasoningTrigger />
-          <ReasoningContent>{reasoningText}</ReasoningContent>
-        </Reasoning>
-      )}
-      {message.parts.map((part, i) => {
-        if (part.type === "text") {
-          return (
-            <MessageResponse key={`${message.id}-text-${i}`}>
-              {part.text}
-            </MessageResponse>
-          );
-        }
+    return (
+      <>
+        {hasReasoning && (
+          <Reasoning className="w-full" isStreaming={isReasoningStreaming}>
+            <ReasoningTrigger />
+            <ReasoningContent>{reasoningText}</ReasoningContent>
+          </Reasoning>
+        )}
+        {message.parts.map((part, i) => {
+          if (part.type === "text") {
+            return (
+              <MessageResponse key={`${message.id}-text-${i}`}>
+                {part.text}
+              </MessageResponse>
+            );
+          }
 
-        if (part.type === "dynamic-tool") {
-          return (
-            <ToolDisplay key={`${message.id}-tool-${i}`} part={part} />
-          );
-        }
+          if (part.type === "dynamic-tool") {
+            return (
+              <MemoToolDisplay key={`${message.id}-tool-${i}`} part={part} />
+            );
+          }
 
-        return null;
-      })}
-    </>
-  );
-}
+          return null;
+        })}
+      </>
+    );
+  },
+);
 
 export type ChatDebugInfo = {
   status: string;
@@ -230,7 +252,6 @@ export type ChatDebugInfo = {
   selectedModel: string;
   models: string[];
   lastMessageRole?: string;
-  messages: AgentMessage[];
   sessionId: string | null;
 };
 
@@ -265,19 +286,30 @@ export function ChatInner({
     prevStatusRef.current = agent.status;
   }, [agent.status]);
 
-  // Debug info
+  // Debug info — intentionally omits the full messages array (it's heavy and
+  // would cause DebugPanel to JSON.stringify it on every change).
+  const messageCount = agent.messages.length;
+  const lastMessageRole = agent.messages.at(-1)?.role;
   useEffect(() => {
     onDebugInfo?.({
       status: agent.status,
       error: agent.error,
-      messageCount: agent.messages.length,
+      messageCount,
       selectedModel: agent.selectedModel,
       models: agent.models.map((m) => m.modelId),
-      lastMessageRole: agent.messages.at(-1)?.role,
-      messages: agent.messages,
+      lastMessageRole,
       sessionId: agent.sessionId,
     });
-  }, [agent.status, agent.messages.length, agent.selectedModel, agent.error]);
+  }, [
+    agent.status,
+    agent.error,
+    agent.selectedModel,
+    agent.sessionId,
+    agent.models,
+    messageCount,
+    lastMessageRole,
+    onDebugInfo,
+  ]);
 
   const isStreaming = agent.status === "streaming";
   const isLoading = agent.status === "loading";

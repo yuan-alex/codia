@@ -25,26 +25,42 @@ const MAX_LOG = 500;
 // WebSocket clients subscribed to the debug feed
 const debugSubscribers = new Set<any>();
 
+// Gate verbose logging — console.log(JSON.stringify(..., null, 2)) on every
+// chunk stalls the event loop, so default to off.
+const DEBUG_ACP = process.env.DEBUG_ACP === "1";
+const DEBUG_ACP_VERBOSE = process.env.DEBUG_ACP === "verbose";
+
 function logAcpMessage(dir: AcpLogEntry["dir"], msg: AnyMessage) {
   const entry: AcpLogEntry = { ts: Date.now(), dir, msg };
   acpLog.push(entry);
   if (acpLog.length > MAX_LOG) acpLog.shift();
 
-  // Console logging
-  const method =
-    "method" in msg ? msg.method : "result" in msg ? "(response)" : "(error)";
-  const id = "id" in msg ? msg.id : undefined;
-  console.log(
-    `[acp] ${dir} ${method}${id !== undefined ? ` #${id}` : ""}`,
-    JSON.stringify(msg, null, 2),
-  );
+  // Console logging — off by default. DEBUG_ACP=1 gives one-line summaries,
+  // DEBUG_ACP=verbose gives the full pretty-printed message.
+  if (DEBUG_ACP || DEBUG_ACP_VERBOSE) {
+    const method =
+      "method" in msg ? msg.method : "result" in msg ? "(response)" : "(error)";
+    const id = "id" in msg ? msg.id : undefined;
+    if (DEBUG_ACP_VERBOSE) {
+      console.log(
+        `[acp] ${dir} ${method}${id !== undefined ? ` #${id}` : ""}`,
+        JSON.stringify(msg, null, 2),
+      );
+    } else {
+      console.log(
+        `[acp] ${dir} ${method}${id !== undefined ? ` #${id}` : ""}`,
+      );
+    }
+  }
 
-  // Forward to debug subscribers
-  const payload = JSON.stringify({ type: "acp_debug", entry });
-  for (const ws of debugSubscribers) {
-    try {
-      ws.send(payload);
-    } catch {}
+  // Forward to debug subscribers — skip serialization if nobody is listening.
+  if (debugSubscribers.size > 0) {
+    const payload = JSON.stringify({ type: "acp_debug", entry });
+    for (const ws of debugSubscribers) {
+      try {
+        ws.send(payload);
+      } catch {}
+    }
   }
 }
 
@@ -52,6 +68,9 @@ function logAcpMessage(dir: AcpLogEntry["dir"], msg: AnyMessage) {
  * Wraps an ACP Stream to log all messages in both directions.
  */
 function tappedStream(stream: acp.Stream): acp.Stream {
+  // Acquire the upstream writer once — getWriter/releaseLock per message is
+  // wasted overhead on every client→agent send.
+  const writer = stream.writable.getWriter();
   return {
     readable: stream.readable.pipeThrough(
       new TransformStream<AnyMessage, AnyMessage>({
@@ -64,15 +83,13 @@ function tappedStream(stream: acp.Stream): acp.Stream {
     writable: new WritableStream<AnyMessage>({
       async write(msg) {
         logAcpMessage("client→agent", msg);
-        const writer = stream.writable.getWriter();
         await writer.write(msg);
-        writer.releaseLock();
       },
       async close() {
-        await stream.writable.close();
+        await writer.close();
       },
       abort(reason) {
-        stream.writable.abort(reason);
+        return writer.abort(reason);
       },
     }),
   };
@@ -360,3 +377,7 @@ Bun.serve<WsData>({
 });
 
 console.log(`Codia server running on http://localhost:${config.port}`);
+
+// Warm up the ACP subprocess now so the first client doesn't pay the
+// spawn + initialize cost on its critical path.
+ensureConnection().catch((err) => console.error("[acp] warm-up failed:", err));

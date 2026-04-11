@@ -103,17 +103,22 @@ export function useAgent(sessionId: string | null) {
   // Keep statusRef in sync
   statusRef.current = status;
 
-  // Throttled flush: at most once per animation frame
+  // Throttled flush: at most once per animation frame.
+  //
+  // IMPORTANT: we only shallow-copy the parts *array*, not each part. Handlers
+  // below replace the identity of any part they mutate (by assigning a fresh
+  // object at that index), so unchanged parts keep their reference across
+  // flushes. That lets React.memo'd children (tool renderers, message parts)
+  // bail out of re-render while streaming.
   const scheduleFlush = useCallback(() => {
     if (flushRafRef.current !== null) return;
     flushRafRef.current = requestAnimationFrame(() => {
       flushRafRef.current = null;
       const assistant = currentAssistantRef.current;
       if (!assistant) return;
-      // Deep-copy parts to preserve React immutability
       const snapshot: AgentMessage = {
         ...assistant,
-        parts: assistant.parts.map((p) => ({ ...p })),
+        parts: assistant.parts.slice(),
       };
       setStreamingMessage(snapshot);
     });
@@ -130,7 +135,7 @@ export function useAgent(sessionId: string | null) {
     if (!assistant) return;
     const snapshot: AgentMessage = {
       ...assistant,
-      parts: assistant.parts.map((p) => ({ ...p })),
+      parts: assistant.parts.slice(),
     };
     setMessages((prev) => {
       const existing = prev.findIndex((m) => m.id === assistant.id);
@@ -195,9 +200,12 @@ export function useAgent(sessionId: string | null) {
         const text = (update as any).content?.text;
         if (text) {
           const parts = currentAssistantRef.current.parts;
-          const lastPart = parts[parts.length - 1];
+          const lastIdx = parts.length - 1;
+          const lastPart = parts[lastIdx];
           if (lastPart?.type === "text") {
-            lastPart.text += text;
+            // Replace (new identity) so memoized children see a change —
+            // but leave every other part's reference untouched.
+            parts[lastIdx] = { type: "text", text: lastPart.text + text };
           } else {
             parts.push({ type: "text", text });
           }
@@ -217,9 +225,13 @@ export function useAgent(sessionId: string | null) {
         const text = (update as any).content?.text;
         if (text) {
           const parts = currentAssistantRef.current.parts;
-          const lastPart = parts[parts.length - 1];
+          const lastIdx = parts.length - 1;
+          const lastPart = parts[lastIdx];
           if (lastPart?.type === "reasoning") {
-            lastPart.text += text;
+            parts[lastIdx] = {
+              type: "reasoning",
+              text: lastPart.text + text,
+            };
           } else {
             parts.push({ type: "reasoning", text });
           }
@@ -254,32 +266,28 @@ export function useAgent(sessionId: string | null) {
 
       if (type === "tool_call_update") {
         if (!currentAssistantRef.current) return;
-        const toolPart = currentAssistantRef.current.parts.find(
+        const parts = currentAssistantRef.current.parts;
+        const idx = parts.findIndex(
           (p) =>
             p.type === "dynamic-tool" &&
             p.toolCallId === (update as any).toolCallId,
-        ) as Extract<Part, { type: "dynamic-tool" }> | undefined;
-        if (toolPart) {
-          const content = (update as any).content as
-            | ToolContentBlock[]
-            | undefined;
-          if (content) {
-            toolPart.content = content;
-          }
-          const locations = (update as any).locations as
-            | ToolCallLocation[]
-            | undefined;
-          if (locations) {
-            toolPart.locations = locations;
-          }
-          if ((update as any).status) {
-            toolPart.state = (update as any).status;
-          }
-          if ((update as any).title) {
-            toolPart.title = (update as any).title;
-          }
-          scheduleFlush();
-        }
+        );
+        if (idx < 0) return;
+        const toolPart = parts[idx] as Extract<Part, { type: "dynamic-tool" }>;
+        // Build a replacement object so only this tool gets a new identity.
+        const next: Extract<Part, { type: "dynamic-tool" }> = { ...toolPart };
+        const content = (update as any).content as
+          | ToolContentBlock[]
+          | undefined;
+        if (content) next.content = content;
+        const locations = (update as any).locations as
+          | ToolCallLocation[]
+          | undefined;
+        if (locations) next.locations = locations;
+        if ((update as any).status) next.state = (update as any).status;
+        if ((update as any).title) next.title = (update as any).title;
+        parts[idx] = next;
+        scheduleFlush();
         return;
       }
     },

@@ -137,7 +137,6 @@ export default function App() {
             "agent.selectedModel": chatDebug.selectedModel,
             "agent.lastMessageRole": chatDebug.lastMessageRole ?? "none",
             "agent.models": chatDebug.models,
-            "agent.messages": chatDebug.messages,
           }}
         />
       )}
