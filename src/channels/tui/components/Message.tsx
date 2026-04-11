@@ -46,7 +46,8 @@ function renderDynamicToolPart(
   const isApprovalRequest = toolPart.state === "approval-requested";
   const approvalId = (toolPart as any).approval?.id;
   // Tools that require approval: bash, edit
-  const requiresApproval = toolPart.toolName === "bash" || toolPart.toolName === "edit";
+  const requiresApproval =
+    toolPart.toolName === "bash" || toolPart.toolName === "edit";
 
   return (
     <Box key={`tool-${index}-${callId}`} flexDirection="column">

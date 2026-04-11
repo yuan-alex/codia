@@ -51,12 +51,7 @@ export function ToolApproval({
     const command = input?.command || "unknown command";
     return (
       <Box flexDirection="column" marginLeft={2} marginTop={1}>
-        <Box
-          borderStyle="round"
-          borderColor="yellow"
-          paddingX={1}
-          paddingY={0}
-        >
+        <Box borderStyle="round" borderColor="yellow" paddingX={1} paddingY={0}>
           <Box flexDirection="column">
             <Box marginBottom={1}>
               <Text color="yellow" bold>
@@ -76,7 +71,8 @@ export function ToolApproval({
             </Box>
             <Box marginTop={1}>
               <Text color="yellow">
-                Press <Text bold>Y</Text> to approve, <Text bold>N</Text> to reject
+                Press <Text bold>Y</Text> to approve, <Text bold>N</Text> to
+                reject
               </Text>
             </Box>
           </Box>
@@ -93,12 +89,7 @@ export function ToolApproval({
 
     return (
       <Box flexDirection="column" marginLeft={2} marginTop={1}>
-        <Box
-          borderStyle="round"
-          borderColor="yellow"
-          paddingX={1}
-          paddingY={0}
-        >
+        <Box borderStyle="round" borderColor="yellow" paddingX={1} paddingY={0}>
           <Box flexDirection="column">
             <Box marginBottom={1}>
               <Text color="yellow" bold>
@@ -134,7 +125,8 @@ export function ToolApproval({
             )}
             <Box marginTop={1}>
               <Text color="yellow">
-                Press <Text bold>Y</Text> to approve, <Text bold>N</Text> to reject
+                Press <Text bold>Y</Text> to approve, <Text bold>N</Text> to
+                reject
               </Text>
             </Box>
           </Box>
@@ -146,12 +138,7 @@ export function ToolApproval({
   // Generic approval for other tools
   return (
     <Box flexDirection="column" marginLeft={2} marginTop={1}>
-      <Box
-        borderStyle="round"
-        borderColor="yellow"
-        paddingX={1}
-        paddingY={0}
-      >
+      <Box borderStyle="round" borderColor="yellow" paddingX={1} paddingY={0}>
         <Box flexDirection="column">
           <Box marginBottom={1}>
             <Text color="yellow" bold>
@@ -165,7 +152,8 @@ export function ToolApproval({
           </Box>
           <Box marginTop={1}>
             <Text color="yellow">
-              Press <Text bold>Y</Text> to approve, <Text bold>N</Text> to reject
+              Press <Text bold>Y</Text> to approve, <Text bold>N</Text> to
+              reject
             </Text>
           </Box>
         </Box>
@@ -173,4 +161,3 @@ export function ToolApproval({
     </Box>
   );
 }
-

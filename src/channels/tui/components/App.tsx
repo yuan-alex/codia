@@ -24,7 +24,8 @@ export function App() {
       transport: new DefaultChatTransport({
         api: `http://localhost:${config.port}/api/chat`,
       }),
-      sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
+      sendAutomaticallyWhen:
+        lastAssistantMessageIsCompleteWithApprovalResponses,
     });
 
   // Handle approval submission
