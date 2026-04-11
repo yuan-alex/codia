@@ -1,36 +1,73 @@
 # Codia
 
-A coding agent CLI that helps users understand and modify their codebases. Built with Bun and Ink for a seamless terminal experience.
+A coding agent that helps users understand and modify their codebases. Available as a terminal UI (TUI) and a web app. Built with Bun, the AI SDK, and React.
+
+## Features
+
+- **Two interfaces** — terminal UI (Ink) and web UI (React + Vite)
+- **TUI** — custom coding agent with built-in tools (`ls`, `cat`, `grep`, `edit`, `bash`) using any OpenAI-compatible API
+- **Web** — proxies to Claude Code via ACP (Agent Client Protocol), with session management and history replay
+- **Session management** — persistent Claude Code sessions with list/load/resume support
 
 ## Installation
 
 Prerequisites: [Bun](https://bun.sh/)
 
-1. Clone the repository:
-  ```bash
-   git clone <repo-url>
-   cd codia
-  ```
-2. Install dependencies:
-  ```bash
-   bun install
-  ```
+```bash
+git clone <repo-url>
+cd codia
+bun install
+```
 
 ## Usage
 
-Start the interactive CLI:
+### Terminal UI
 
 ```bash
 bun run dev
 ```
 
-This launches the UI where you can explore files, make edits, and get AI-assisted code modifications.
+### Web UI
+
+```bash
+bun run web
+```
+
+Starts the backend server and Vite dev server concurrently.
+
+## Project Structure
+
+```
+src/
+├── lib/              # Core agent logic
+│   ├── agent.ts      # Agent setup, system prompt, model config
+│   ├── config.ts     # Configuration
+│   ├── sensitive-paths.ts
+│   └── tools/        # Tool implementations (bash, cat, edit, grep, ls)
+├── channels/
+│   ├── tui/          # Terminal UI (Ink/React)
+│   └── web/          # Web UI (React + Vite)
+└── server/           # Backend API and session management
+```
 
 ## Development
 
 - Run tests: `bun test`
+- Run tool tests: `bun test tools.test.ts`
+- Run API tests: `bun test src/server/api.test.ts`
 - Format code: `bun run format`
-- For Bun-specific guidelines, see [CLAUDE.md](./CLAUDE.md)
+
+## Configuration
+
+Bun loads `.env` automatically.
+
+**TUI** (custom agent):
+- `OPENAI_API_BASE_URL` — base URL for the OpenAI-compatible API
+- `OPENAI_API_KEY` — API key
+
+**Web** (Claude Code proxy):
+- Requires `claude-agent-acp` (installed as a dependency)
+- `PORT` — server port (default: 1337)
 
 ## License
 
