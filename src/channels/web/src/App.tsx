@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ChatInner, type ChatDebugInfo } from "./components/chat-inner";
 import { DebugPanel } from "./components/debug-panel";
 import { AcpInspector } from "./components/acp-inspector";
-import { Plus, MessageSquare } from "lucide-react";
+import { Plus, MessageSquare, SparklesIcon } from "lucide-react";
 
 type SessionListItem = {
   sessionId: string;
@@ -71,8 +71,16 @@ export default function App() {
     <div className="flex h-screen">
       {/* Sidebar */}
       <div className="w-64 shrink-0 border-r border-border bg-card flex flex-col">
-        <div className="px-4 py-4 border-b border-border">
-          <h1 className="text-lg font-semibold text-primary">Codia</h1>
+        <div className="px-4 py-4 border-b border-border flex items-center gap-2.5">
+          <div className="relative flex size-7 items-center justify-center rounded-lg border border-[#d97757]/30 bg-gradient-to-br from-[#d97757]/20 to-[#d97757]/5">
+            <SparklesIcon className="size-3.5 text-[#d97757]" strokeWidth={2} />
+          </div>
+          <div className="flex flex-col leading-tight">
+            <h1 className="text-sm font-semibold tracking-tight">Codia</h1>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-medium">
+              For Claude Code
+            </span>
+          </div>
         </div>
         <div className="p-3">
           <Button

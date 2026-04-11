@@ -197,6 +197,27 @@ Bun.serve<WsData>({
       }
     }
 
+    // REST: workspace info (cwd, repo name, git branch)
+    if (req.method === "GET" && url.pathname === "/api/workspace") {
+      const cwd = process.cwd();
+      const home = process.env.HOME;
+      const displayPath =
+        home && cwd.startsWith(home) ? "~" + cwd.slice(home.length) : cwd;
+      const basename = cwd.split("/").filter(Boolean).pop() ?? cwd;
+      let branch: string | null = null;
+      try {
+        const proc = Bun.spawnSync(
+          ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+          { cwd, stdout: "pipe", stderr: "ignore" },
+        );
+        if (proc.exitCode === 0) {
+          const out = proc.stdout.toString().trim();
+          if (out && out !== "HEAD") branch = out;
+        }
+      } catch {}
+      return Response.json({ cwd, displayPath, basename, branch });
+    }
+
     // REST: debug log history
     if (req.method === "GET" && url.pathname === "/api/debug/log") {
       return Response.json({ log: acpLog });

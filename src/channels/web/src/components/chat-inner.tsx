@@ -1,11 +1,19 @@
 import { useState, useEffect, useRef } from "react";
-import { SparklesIcon } from "lucide-react";
+import {
+  SparklesIcon,
+  FileSearchIcon,
+  BugIcon,
+  GitBranchIcon,
+  TestTube2Icon,
+  FolderIcon,
+  CornerDownLeftIcon,
+  CommandIcon,
+} from "lucide-react";
 import { useAgent, type AgentMessage } from "@/hooks/use-agent";
 
 import {
   Conversation,
   ConversationContent,
-  ConversationEmptyState,
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
 import {
@@ -34,6 +42,138 @@ import {
   ReasoningTrigger,
 } from "@/components/ai-elements/reasoning";
 import { Spinner } from "@/components/ui/spinner";
+
+type Workspace = {
+  cwd: string;
+  displayPath: string;
+  basename: string;
+  branch: string | null;
+};
+
+const SUGGESTIONS: {
+  icon: typeof FileSearchIcon;
+  title: string;
+  prompt: string;
+}[] = [
+  {
+    icon: FileSearchIcon,
+    title: "Explore the codebase",
+    prompt: "Give me a tour of this repository — the main entry points, the architecture, and what each top-level directory is responsible for.",
+  },
+  {
+    icon: BugIcon,
+    title: "Hunt down a bug",
+    prompt: "I'm seeing an unexpected behavior in this project. Help me trace it — ask me for details and then investigate the relevant files.",
+  },
+  {
+    icon: GitBranchIcon,
+    title: "Refactor a module",
+    prompt: "Look for duplication or tangled logic I should clean up, then propose a refactor with concrete diffs.",
+  },
+  {
+    icon: TestTube2Icon,
+    title: "Write tests",
+    prompt: "Find the most valuable untested code paths in this repo and write tests for them.",
+  },
+];
+
+function EmptyState({ onSuggestion }: { onSuggestion: (text: string) => void }) {
+  const [workspace, setWorkspace] = useState<Workspace | null>(null);
+
+  useEffect(() => {
+    fetch("/api/workspace")
+      .then((r) => r.json())
+      .then((data) => setWorkspace(data))
+      .catch(() => {});
+  }, []);
+
+  return (
+    <div className="flex flex-col items-center justify-center gap-8 px-6 pb-12 w-full max-w-2xl mx-auto">
+      {/* Brand mark */}
+      <div className="flex flex-col items-center gap-5">
+        <div className="relative flex items-center justify-center">
+          <div className="absolute size-24 rounded-full bg-[#d97757]/10 blur-2xl" />
+          <div className="absolute size-16 rounded-full bg-[#d97757]/15 blur-xl" />
+          <div className="relative size-14 rounded-2xl border border-[#d97757]/30 bg-gradient-to-br from-[#d97757]/20 to-[#d97757]/5 flex items-center justify-center shadow-lg shadow-[#d97757]/10">
+            <SparklesIcon className="size-6 text-[#d97757]" strokeWidth={1.75} />
+          </div>
+        </div>
+
+        <div className="flex flex-col items-center gap-2.5">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-[#d97757]/30 bg-[#d97757]/5 px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-[#d97757] font-semibold">
+            <span className="size-1 rounded-full bg-[#d97757] animate-pulse" />
+            <span>Powered by Claude Code</span>
+          </div>
+          <h2 className="text-3xl font-semibold tracking-tight">
+            What shall we build?
+          </h2>
+          <p className="text-muted-foreground text-sm max-w-md text-center">
+            I can read files, run commands, edit code, and ship changes — just tell me what you need.
+          </p>
+        </div>
+
+        {/* Workspace chip */}
+        {workspace && (
+          <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-card/50 px-3 py-1.5 font-mono text-[11px] text-muted-foreground shadow-sm">
+            <FolderIcon className="size-3.5 text-[#d97757]" strokeWidth={1.75} />
+            <span className="text-foreground/80">{workspace.displayPath}</span>
+            {workspace.branch && (
+              <>
+                <span className="text-border">│</span>
+                <GitBranchIcon className="size-3 text-muted-foreground" strokeWidth={1.75} />
+                <span>{workspace.branch}</span>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Suggestion cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-xl">
+        {SUGGESTIONS.map(({ icon: Icon, title, prompt }) => (
+          <button
+            key={title}
+            type="button"
+            onClick={() => onSuggestion(prompt)}
+            className="group relative flex items-start gap-3 overflow-hidden rounded-xl border border-border/60 bg-card/40 px-4 py-3.5 text-left transition-all hover:border-[#d97757]/40 hover:bg-card hover:shadow-sm"
+          >
+            <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-background/80 text-muted-foreground transition-colors group-hover:border-[#d97757]/40 group-hover:text-[#d97757]">
+              <Icon className="size-3.5" strokeWidth={1.75} />
+            </div>
+            <div className="flex flex-col gap-0.5 min-w-0">
+              <span className="text-sm font-medium text-foreground leading-tight">
+                {title}
+              </span>
+              <span className="text-xs text-muted-foreground line-clamp-2 leading-snug">
+                {prompt}
+              </span>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {/* Keyboard hint */}
+      <div className="flex items-center gap-3 text-[11px] text-muted-foreground/70">
+        <span className="inline-flex items-center gap-1">
+          <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded border border-border/80 bg-card px-1 font-mono text-[10px]">
+            <CornerDownLeftIcon className="size-2.5" strokeWidth={2} />
+          </kbd>
+          <span>send</span>
+        </span>
+        <span className="text-border">·</span>
+        <span className="inline-flex items-center gap-1">
+          <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded border border-border/80 bg-card px-1 font-mono text-[10px]">
+            <CommandIcon className="size-2.5" strokeWidth={2} />
+          </kbd>
+          <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded border border-border/80 bg-card px-1 font-mono text-[10px]">
+            K
+          </kbd>
+          <span>new chat</span>
+        </span>
+      </div>
+    </div>
+  );
+}
 
 function MessageParts({
   message,
@@ -107,6 +247,7 @@ export function ChatInner({
 }) {
   const [input, setInput] = useState("");
   const agent = useAgent(sessionId);
+  const handleSuggestion = (text: string) => setInput(text);
   const prevStatusRef = useRef(agent.status);
 
   // Notify parent when session is resolved
@@ -165,14 +306,13 @@ export function ChatInner({
           <div className="h-full w-1/3 animate-[shimmer_1.5s_ease-in-out_infinite] bg-primary/40 rounded-full" />
         </div>
       )}
-      <Conversation>
-        <ConversationContent>
-          {agent.messages.length === 0 && !isLoading ? (
-            <ConversationEmptyState
-              title="How can I help?"
-              description="Ask me anything about your codebase."
-            />
-          ) : (
+      {agent.messages.length === 0 && !isLoading ? (
+        <div className="flex-1 flex items-center justify-center">
+          <EmptyState onSuggestion={handleSuggestion} />
+        </div>
+      ) : (
+        <Conversation>
+          <ConversationContent>
             <>
               {isLoading && (
                 <div className="flex items-center gap-2 px-4 py-2 text-xs text-muted-foreground">
@@ -192,15 +332,15 @@ export function ChatInner({
                 </Message>
               ))}
             </>
-          )}
 
-          {isStreaming &&
-            agent.messages[agent.messages.length - 1]?.role !== "assistant" && (
-              <Spinner />
-            )}
-        </ConversationContent>
-        <ConversationScrollButton />
-      </Conversation>
+            {isStreaming &&
+              agent.messages[agent.messages.length - 1]?.role !== "assistant" && (
+                <Spinner />
+              )}
+          </ConversationContent>
+          <ConversationScrollButton />
+        </Conversation>
+      )}
 
       <PromptInput
         onSubmit={handleSubmit}
