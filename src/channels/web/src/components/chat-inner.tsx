@@ -150,14 +150,6 @@ export function ChatInner({
     setInput("");
   };
 
-  if (agent.status === "connecting") {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <p className="text-muted-foreground text-sm">Connecting...</p>
-      </div>
-    );
-  }
-
   if (agent.status === "error" && agent.messages.length === 0) {
     return (
       <div className="flex h-full items-center justify-center">
