@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { Writable, Readable } from "node:stream";
 import * as acp from "@agentclientprotocol/sdk";
+import type { AnyMessage } from "@agentclientprotocol/sdk";
 import { config } from "../lib/config";
 import { assertAgentPathAllowed } from "../lib/sensitive-paths";
 
@@ -10,6 +11,72 @@ import { assertAgentPathAllowed } from "../lib/sensitive-paths";
 type WsData = {
   sessionId: string | null;
 };
+
+// ── Debug logging ──────────────────────────────────────────────────
+
+type AcpLogEntry = {
+  ts: number;
+  dir: "client→agent" | "agent→client";
+  msg: AnyMessage;
+};
+
+const acpLog: AcpLogEntry[] = [];
+const MAX_LOG = 500;
+// WebSocket clients subscribed to the debug feed
+const debugSubscribers = new Set<any>();
+
+function logAcpMessage(dir: AcpLogEntry["dir"], msg: AnyMessage) {
+  const entry: AcpLogEntry = { ts: Date.now(), dir, msg };
+  acpLog.push(entry);
+  if (acpLog.length > MAX_LOG) acpLog.shift();
+
+  // Console logging
+  const method =
+    "method" in msg ? msg.method : "result" in msg ? "(response)" : "(error)";
+  const id = "id" in msg ? msg.id : undefined;
+  console.log(
+    `[acp] ${dir} ${method}${id !== undefined ? ` #${id}` : ""}`,
+    JSON.stringify(msg, null, 2),
+  );
+
+  // Forward to debug subscribers
+  const payload = JSON.stringify({ type: "acp_debug", entry });
+  for (const ws of debugSubscribers) {
+    try {
+      ws.send(payload);
+    } catch {}
+  }
+}
+
+/**
+ * Wraps an ACP Stream to log all messages in both directions.
+ */
+function tappedStream(stream: acp.Stream): acp.Stream {
+  return {
+    readable: stream.readable.pipeThrough(
+      new TransformStream<AnyMessage, AnyMessage>({
+        transform(msg, controller) {
+          logAcpMessage("agent→client", msg);
+          controller.enqueue(msg);
+        },
+      }),
+    ),
+    writable: new WritableStream<AnyMessage>({
+      async write(msg) {
+        logAcpMessage("client→agent", msg);
+        const writer = stream.writable.getWriter();
+        await writer.write(msg);
+        writer.releaseLock();
+      },
+      async close() {
+        await stream.writable.close();
+      },
+      abort(reason) {
+        stream.writable.abort(reason);
+      },
+    }),
+  };
+}
 
 // ── ACP connection (single subprocess) ──────────────────────────────
 
@@ -31,7 +98,7 @@ async function initConnection() {
   const output = Readable.toWeb(
     agentProcess.stdout!,
   ) as ReadableStream<Uint8Array>;
-  const stream = acp.ndJsonStream(input, output);
+  const stream = tappedStream(acp.ndJsonStream(input, output));
 
   const client: acp.Client = {
     requestPermission: async (params) => ({
@@ -106,6 +173,12 @@ Bun.serve<WsData>({
   async fetch(req, server) {
     const url = new URL(req.url);
 
+    // Debug WebSocket — streams raw ACP messages to the browser
+    if (url.pathname === "/ws/debug") {
+      if (server.upgrade(req, { data: { sessionId: "__debug__" } })) return;
+      return new Response("WebSocket upgrade failed", { status: 500 });
+    }
+
     // WebSocket upgrade
     if (url.pathname === "/ws") {
       if (server.upgrade(req, { data: { sessionId: null } })) return;
@@ -124,15 +197,29 @@ Bun.serve<WsData>({
       }
     }
 
+    // REST: debug log history
+    if (req.method === "GET" && url.pathname === "/api/debug/log") {
+      return Response.json({ log: acpLog });
+    }
+
     return new Response("Not found", { status: 404 });
   },
 
   websocket: {
     async open(ws) {
+      if (ws.data.sessionId === "__debug__") {
+        console.log("[ws] Debug client connected");
+        debugSubscribers.add(ws);
+        // Send existing log as initial payload
+        ws.send(JSON.stringify({ type: "acp_debug_init", log: acpLog }));
+        return;
+      }
       console.log("[ws] Client connected");
     },
 
     async message(ws, raw) {
+      // Debug clients are read-only
+      if (ws.data.sessionId === "__debug__") return;
       let msg: any;
       try {
         msg = JSON.parse(String(raw));
@@ -240,6 +327,11 @@ Bun.serve<WsData>({
     },
 
     close(ws) {
+      if (ws.data.sessionId === "__debug__") {
+        console.log("[ws] Debug client disconnected");
+        debugSubscribers.delete(ws);
+        return;
+      }
       console.log("[ws] Client disconnected");
       if (activeWs === ws) activeWs = null;
     },

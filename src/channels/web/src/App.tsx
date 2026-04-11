@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 
 import { ChatInner, type ChatDebugInfo } from "./components/chat-inner";
 import { DebugPanel } from "./components/debug-panel";
+import { AcpInspector } from "./components/acp-inspector";
 import { Plus, MessageSquare } from "lucide-react";
 
 type SessionListItem = {
@@ -131,6 +132,8 @@ export default function App() {
           }}
         />
       )}
+
+      <AcpInspector />
     </div>
   );
 }

@@ -2,6 +2,33 @@ import { useState, useEffect, useRef, useCallback } from "react";
 
 // ── Types ───────────────────────────────────────────────────────────
 
+export type ToolKind =
+  | "read"
+  | "edit"
+  | "delete"
+  | "move"
+  | "search"
+  | "execute"
+  | "think"
+  | "fetch"
+  | "other";
+
+export type ToolCallStatus =
+  | "pending"
+  | "in_progress"
+  | "completed"
+  | "failed";
+
+export type ToolCallLocation = {
+  path: string;
+  line?: number;
+};
+
+export type ToolContentBlock =
+  | { type: "content"; content: { type: "text"; text: string } }
+  | { type: "diff"; path: string; oldText?: string; newText: string }
+  | { type: "terminal"; terminalId: string };
+
 export type Part =
   | { type: "text"; text: string }
   | { type: "reasoning"; text: string }
@@ -9,9 +36,12 @@ export type Part =
       type: "dynamic-tool";
       toolCallId: string;
       toolName: string;
-      state: string;
+      title: string;
+      kind: ToolKind;
+      state: ToolCallStatus;
       input: Record<string, unknown>;
-      output?: unknown;
+      content: ToolContentBlock[];
+      locations: ToolCallLocation[];
     };
 
 export type AgentMessage = {
@@ -206,12 +236,17 @@ export function useAgent(sessionId: string | null) {
             parts: [],
           };
         }
+        const meta = (update as any)._meta?.claudeCode;
         currentAssistantRef.current.parts.push({
           type: "dynamic-tool",
           toolCallId: (update as any).toolCallId,
-          toolName: (update as any).title || "unknown",
-          state: "input-available",
-          input: {},
+          toolName: meta?.toolName ?? "unknown",
+          title: (update as any).title ?? "",
+          kind: (update as any).kind ?? "other",
+          state: (update as any).status ?? "pending",
+          input: (update as any).rawInput ?? {},
+          content: (update as any).content ?? [],
+          locations: (update as any).locations ?? [],
         });
         scheduleFlush();
         return;
@@ -225,21 +260,23 @@ export function useAgent(sessionId: string | null) {
             p.toolCallId === (update as any).toolCallId,
         ) as Extract<Part, { type: "dynamic-tool" }> | undefined;
         if (toolPart) {
-          const content = (update as any).content;
+          const content = (update as any).content as
+            | ToolContentBlock[]
+            | undefined;
           if (content) {
-            toolPart.output = content
-              .map((c: any) =>
-                c.type === "content" && c.content?.type === "text"
-                  ? c.content.text
-                  : "",
-              )
-              .filter(Boolean)
-              .join("\n");
+            toolPart.content = content;
           }
-          if ((update as any).status === "completed") {
-            toolPart.state = "output-available";
-          } else if ((update as any).status === "failed") {
-            toolPart.state = "output-error";
+          const locations = (update as any).locations as
+            | ToolCallLocation[]
+            | undefined;
+          if (locations) {
+            toolPart.locations = locations;
+          }
+          if ((update as any).status) {
+            toolPart.state = (update as any).status;
+          }
+          if ((update as any).title) {
+            toolPart.title = (update as any).title;
           }
           scheduleFlush();
         }

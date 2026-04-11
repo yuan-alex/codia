@@ -26,12 +26,7 @@ import {
   PromptInputSelectValue,
   PromptInputBody,
 } from "@/components/ai-elements/prompt-input";
-import {
-  Tool,
-  ToolContent,
-  ToolHeader,
-  ToolOutput,
-} from "@/components/ai-elements/tool";
+import { ToolDisplay } from "@/components/ai-elements/tool-renderers";
 import {
   Reasoning,
   ReasoningContent,
@@ -76,18 +71,8 @@ function MessageParts({
         }
 
         if (part.type === "dynamic-tool") {
-          const isDone = part.state === "output-available";
           return (
-            <Tool key={`${message.id}-tool-${i}`} defaultOpen={false}>
-              <ToolHeader
-                type="dynamic-tool"
-                state={part.state}
-                toolName={part.toolName}
-              />
-              <ToolContent>
-                <ToolOutput output={isDone ? part.output : undefined} />
-              </ToolContent>
-            </Tool>
+            <ToolDisplay key={`${message.id}-tool-${i}`} part={part} />
           );
         }
 
