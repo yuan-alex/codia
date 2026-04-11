@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "bun run ./src/channels/tui/index.tsx",
-    "web": "concurrently \"bun --hot run ./src/server/index.ts\" \"cd src/channels/web && bunx vite\"",
+    "web": "concurrently --kill-others \"bun --hot run ./src/server/index.ts\" \"cd src/channels/web && bunx vite\"",
     "test": "bun test",
     "test:tools": "bun test tools.test.ts",
     "test:api": "bun test src/server/api.test.ts",

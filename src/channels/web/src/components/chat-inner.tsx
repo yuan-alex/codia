@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { SparklesIcon } from "lucide-react";
 import { useAgent, type AgentMessage } from "@/hooks/use-agent";
 
 import {
@@ -178,7 +179,7 @@ export function ChatInner({
 
       <PromptInput
         onSubmit={handleSubmit}
-        className="mt-4 w-full max-w-3xl mx-auto px-4 pb-4"
+        className="mt-4 w-full max-w-4xl mx-auto px-4 pb-4"
       >
         <PromptInputBody>
           <PromptInputTextarea
@@ -196,10 +197,11 @@ export function ChatInner({
                 onValueChange={agent.changeModel}
                 disabled={isStreaming}
               >
-                <PromptInputSelectTrigger>
+                <PromptInputSelectTrigger className="h-8 gap-1.5 rounded-lg px-2.5 text-xs">
+                  <SparklesIcon className="size-3.5 text-muted-foreground" />
                   <PromptInputSelectValue />
                 </PromptInputSelectTrigger>
-                <PromptInputSelectContent>
+                <PromptInputSelectContent align="start">
                   {agent.models.map((m) => (
                     <PromptInputSelectItem key={m.modelId} value={m.modelId}>
                       {m.name}
