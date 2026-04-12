@@ -1,5 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
+// ── ANSI stripping ───────────────────────────────────────────────────
+
+// eslint-disable-next-line no-control-regex
+const ANSI_RE = /\x1B(?:\[[0-9;]*[mGKHFJA-Za-z]|[()][012AB])/g;
+
+function stripAnsi(str: string): string {
+  return str.replace(ANSI_RE, "");
+}
+
 // ── Types ───────────────────────────────────────────────────────────
 
 export type ToolKind =
@@ -81,7 +90,9 @@ type SessionUpdate = {
 
 // ── Hook ────────────────────────────────────────────────────────────
 
-export function useAgent(sessionId: string | null) {
+export type BackendType = "acp" | "codia";
+
+export function useAgent(sessionId: string | null, backend: BackendType = "acp") {
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   // Separate state for the in-progress streaming message to avoid
   // re-creating the full messages array on every chunk
@@ -99,6 +110,9 @@ export function useAgent(sessionId: string | null) {
   const currentAssistantRef = useRef<AgentMessage | null>(null);
   const flushRafRef = useRef<number | null>(null);
   const statusRef = useRef<Status>("connecting");
+  // Track the last seen messageId for user chunks so we can split them
+  // correctly when ACP sends the experimental messageId field.
+  const lastUserMessageIdRef = useRef<string | null>(null);
 
   // Keep statusRef in sync
   statusRef.current = status;
@@ -161,12 +175,24 @@ export function useAgent(sessionId: string | null) {
           finalizeAssistant();
         }
 
-        const text = (update as any).content?.text;
+        const text = stripAnsi((update as any).content?.text ?? "");
         if (!text) return;
+
+        // ACP ContentChunk carries an experimental messageId that groups
+        // chunks belonging to the same logical message.  Use it to detect
+        // message boundaries so that separate user turns (e.g. slash commands
+        // like /effort followed by the real prompt) don't get smashed together.
+        const messageId = (update as any).messageId as string | null | undefined;
 
         setMessages((prev) => {
           const last = prev[prev.length - 1];
-          if (last?.role === "user") {
+          const sameMessage =
+            last?.role === "user" &&
+            // If we have messageId info, a change means a new message.
+            // If messageId is absent we fall back to the old behaviour.
+            (!messageId || messageId === lastUserMessageIdRef.current);
+
+          if (sameMessage) {
             const lastPart = last.parts[last.parts.length - 1];
             if (lastPart?.type === "text") {
               const updated = { ...last, parts: [...last.parts] };
@@ -177,6 +203,7 @@ export function useAgent(sessionId: string | null) {
               return [...prev.slice(0, -1), updated];
             }
           }
+          lastUserMessageIdRef.current = messageId ?? null;
           return [
             ...prev,
             {
@@ -197,7 +224,7 @@ export function useAgent(sessionId: string | null) {
             parts: [],
           };
         }
-        const text = (update as any).content?.text;
+        const text = stripAnsi((update as any).content?.text ?? "");
         if (text) {
           const parts = currentAssistantRef.current.parts;
           const lastIdx = parts.length - 1;
@@ -222,7 +249,7 @@ export function useAgent(sessionId: string | null) {
             parts: [],
           };
         }
-        const text = (update as any).content?.text;
+        const text = stripAnsi((update as any).content?.text ?? "");
         if (text) {
           const parts = currentAssistantRef.current.parts;
           const lastIdx = parts.length - 1;
@@ -305,7 +332,7 @@ export function useAgent(sessionId: string | null) {
         setStatus("loading");
         ws.send(JSON.stringify({ type: "session/load", sessionId }));
       } else {
-        ws.send(JSON.stringify({ type: "session/new" }));
+        ws.send(JSON.stringify({ type: "session/new", backend }));
       }
     };
 
@@ -337,7 +364,7 @@ export function useAgent(sessionId: string | null) {
         setError(msg.message);
         // Use ref to avoid stale closure over status
         if ((statusRef.current === "connecting" || statusRef.current === "loading") && sessionId) {
-          ws.send(JSON.stringify({ type: "session/new" }));
+          ws.send(JSON.stringify({ type: "session/new", backend }));
           return;
         }
         setStatus("ready");
@@ -366,7 +393,7 @@ export function useAgent(sessionId: string | null) {
         flushRafRef.current = null;
       }
     };
-  }, [sessionId]);
+  }, [sessionId, backend]);
 
   // Merge stable messages with the in-progress streaming message for consumers
   const allMessages =

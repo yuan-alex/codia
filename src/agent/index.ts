@@ -13,7 +13,7 @@ const openaiCompatible = createOpenAICompatible({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const SYSTEM_PROMPT = `You are Coding Agent CLI.
+const SYSTEM_PROMPT = `You are Codia Agent.
 
 You are a coding assistant that helps users understand and modify their codebase.
 You have access to tools for exploring files and making changes.

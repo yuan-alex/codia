@@ -4,8 +4,8 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "concurrently --kill-others \"bun --hot run ./src/server/index.ts\" \"cd src/channels/web && bunx vite\"",
-    "agent-cli": "bun run ./src/channels/tui/index.tsx",
+    "dev": "concurrently --kill-others \"bun --hot run ./src/server/index.ts\" \"cd src/web && bunx vite\"",
+    "agent-cli": "bun run ./src/tui/index.tsx",
     "test": "bun test",
     "test:tools": "bun test tools.test.ts",
     "test:api": "bun test src/server/api.test.ts",

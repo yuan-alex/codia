@@ -9,7 +9,7 @@ import {
   CornerDownLeftIcon,
   CommandIcon,
 } from "lucide-react";
-import { useAgent, type AgentMessage } from "@/hooks/use-agent";
+import { useAgent, type AgentMessage, type BackendType } from "@/hooks/use-agent";
 
 import {
   Conversation,
@@ -257,17 +257,19 @@ export type ChatDebugInfo = {
 
 export function ChatInner({
   sessionId,
+  backend = "acp",
   onSessionReady,
   onPromptDone,
   onDebugInfo,
 }: {
   sessionId: string | null;
+  backend?: BackendType;
   onSessionReady?: (id: string) => void;
   onPromptDone?: () => void;
   onDebugInfo?: (info: ChatDebugInfo) => void;
 }) {
   const [input, setInput] = useState("");
-  const agent = useAgent(sessionId);
+  const agent = useAgent(sessionId, backend);
   const handleSuggestion = (text: string) => setInput(text);
   const prevStatusRef = useRef(agent.status);
 

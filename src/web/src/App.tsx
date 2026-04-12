@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { ChatInner, type ChatDebugInfo } from "./components/chat-inner";
 import { DebugPanel } from "./components/debug-panel";
 import { AcpInspector } from "./components/acp-inspector";
-import { Plus, MessageSquare, SparklesIcon, SunIcon, MoonIcon } from "lucide-react";
+import { Plus, MessageSquare, SparklesIcon, SunIcon, MoonIcon, BotIcon, CodeIcon } from "lucide-react";
+import type { BackendType } from "./hooks/use-agent";
 
 function useTheme() {
   const [isDark, setIsDark] = useState(() => {
@@ -55,6 +56,7 @@ export default function App() {
     getSessionIdFromUrl,
   );
   const [newSessionKey, setNewSessionKey] = useState(0);
+  const [backend, setBackend] = useState<BackendType>("acp");
   const [chatDebug, setChatDebug] = useState<ChatDebugInfo | null>(null);
 
   const fetchSessions = useCallback(() => {
@@ -99,9 +101,21 @@ export default function App() {
           <div className="flex flex-col leading-tight flex-1 min-w-0">
             <h1 className="text-sm font-semibold tracking-tight">Codia</h1>
             <span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-medium">
-              For Claude Code
+              {backend === "acp" ? "Claude Code" : "Codia Agent"}
             </span>
           </div>
+          <button
+            onClick={() => {
+              const next = backend === "acp" ? "codia" : "acp";
+              setBackend(next);
+              startNewSession();
+            }}
+            className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label={backend === "acp" ? "Switch to Codia Agent" : "Switch to Claude Code"}
+            title={backend === "acp" ? "Switch to Codia Agent" : "Switch to Claude Code"}
+          >
+            {backend === "acp" ? <BotIcon className="size-3.5" /> : <CodeIcon className="size-3.5" />}
+          </button>
           <button
             onClick={toggleTheme}
             className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -145,8 +159,9 @@ export default function App() {
       {/* Main chat area */}
       <div className="flex-1 min-w-0">
         <ChatInner
-          key={activeSessionId ?? `new-${newSessionKey}`}
+          key={activeSessionId ?? `new-${newSessionKey}-${backend}`}
           sessionId={activeSessionId}
+          backend={backend}
           onSessionReady={handleSessionReady}
           onPromptDone={fetchSessions}
           onDebugInfo={import.meta.env.DEV ? setChatDebug : undefined}

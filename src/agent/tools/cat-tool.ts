@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 import { z } from "zod";
 
-import { assertAgentPathAllowed } from "../sensitive-paths";
+import { assertAgentPathAllowed } from "../../server/sensitive-paths";
 
 export const catTool = tool({
   description:

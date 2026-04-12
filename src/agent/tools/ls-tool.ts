@@ -6,7 +6,7 @@ import { z } from "zod";
 import {
   assertAgentPathAllowed,
   isEnvSecretsFileName,
-} from "../sensitive-paths";
+} from "../../server/sensitive-paths";
 
 export const lsTool = tool({
   description: "List directory contents",

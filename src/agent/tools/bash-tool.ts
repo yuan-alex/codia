@@ -2,7 +2,7 @@ import { tool } from "ai";
 import { spawn } from "child_process";
 import { z } from "zod";
 
-import { bashReferencesEnvPath } from "../sensitive-paths";
+import { bashReferencesEnvPath } from "../../server/sensitive-paths";
 
 // Helper function to check if command is read-only
 function isReadOnlyCommand(command: string): boolean {
