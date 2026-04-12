@@ -1,12 +1,12 @@
 # Codia
 
-A coding agent that helps users understand and modify their codebases. Available as a terminal UI (TUI) and a web app. Built with Bun, the AI SDK, and React.
+A web-based coding agent UI built with Bun, the AI SDK, and React.
 
 ## Features
 
-- **Two interfaces** — terminal UI (Ink) and web UI (React + Vite)
-- **TUI** — custom coding agent with built-in tools (`ls`, `cat`, `grep`, `edit`, `bash`) using any OpenAI-compatible API
-- **Web** — proxies to Claude Code via ACP (Agent Client Protocol), with session management and history replay
+- **Two backends** — Claude Code (via ACP) and a custom Codia Agent using any OpenAI-compatible API
+- **Claude Code backend** — proxies to Claude Code via ACP (Agent Client Protocol), with session management and history replay
+- **Codia Agent backend** — custom coding agent with built-in tools (`ls`, `cat`, `grep`, `edit`, `bash`)
 - **Session management** — persistent Claude Code sessions with list/load/resume support
 
 ## Installation
@@ -21,16 +21,8 @@ bun install
 
 ## Usage
 
-### Terminal UI
-
 ```bash
 bun run dev
-```
-
-### Web UI
-
-```bash
-bun run web
 ```
 
 Starts the backend server and Vite dev server concurrently.
@@ -39,15 +31,14 @@ Starts the backend server and Vite dev server concurrently.
 
 ```
 src/
-├── lib/              # Core agent logic
-│   ├── agent.ts      # Agent setup, system prompt, model config
-│   ├── config.ts     # Configuration
-│   ├── sensitive-paths.ts
+├── agent/            # Codia Agent logic
+│   ├── index.ts      # Agent setup, system prompt, model config
 │   └── tools/        # Tool implementations (bash, cat, edit, grep, ls)
-├── channels/
-│   ├── tui/          # Terminal UI (Ink/React)
-│   └── web/          # Web UI (React + Vite)
-└── server/           # Backend API and session management
+├── server/           # Backend server, API, and session management
+│   ├── index.ts      # Bun.serve entry point
+│   ├── backends/     # ACP and Codia Agent backend implementations
+│   └── sensitive-paths.ts
+└── web/              # Web UI (React + Vite)
 ```
 
 ## Development
@@ -61,11 +52,11 @@ src/
 
 Bun loads `.env` automatically.
 
-**TUI** (custom agent):
+**Codia Agent backend**:
 - `OPENAI_API_BASE_URL` — base URL for the OpenAI-compatible API
 - `OPENAI_API_KEY` — API key
 
-**Web** (Claude Code proxy):
+**Claude Code backend**:
 - Requires `claude-agent-acp` (installed as a dependency)
 - `PORT` — server port (default: 1337)
 

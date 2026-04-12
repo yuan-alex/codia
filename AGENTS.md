@@ -20,7 +20,6 @@ Both backends are accessible through the web UI. The user can switch between the
 - **`src/server/backends/acp-backend.ts`** — ACP backend: proxies to Claude Code via subprocess
 - **`src/server/backends/codia-backend.ts`** — Codia Agent backend: wraps `ToolLoopAgent`, translates streaming to WebSocket protocol
 - **`src/server/sensitive-paths.ts`** — Blocks access to `.env` and secret files
-- **`src/tui/`** — Terminal UI built with Ink (React for the terminal)
 - **`src/web/`** — Web frontend built with React and Vite
 
 ## Key Conventions
@@ -46,5 +45,4 @@ bun test src/server/api.test.ts   # API tests
 - **Adding a new tool**: Create a file in `src/agent/tools/`, export it, and register it in `src/agent/index.ts`.
 - **Modifying the system prompt**: Edit the `SYSTEM_PROMPT` constant in `src/agent/index.ts`.
 - **Web UI changes**: Work in `src/web/`. Run with `bun run dev`.
-- **TUI changes**: Work in `src/tui/`. Run with `bun run agent-cli`.
 - **Adding a new backend**: Implement the `Backend` interface, register it in `src/server/index.ts`.
