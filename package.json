@@ -5,7 +5,6 @@
   "private": true,
   "scripts": {
     "dev": "concurrently --kill-others \"bun --hot run ./src/server/index.ts\" \"cd src/web && bunx vite\"",
-    "agent-cli": "bun run ./src/tui/index.tsx",
     "test": "bun test",
     "test:tools": "bun test tools.test.ts",
     "test:api": "bun test src/server/api.test.ts",
@@ -13,10 +12,8 @@
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^0.18.2",
-    "@inkjs/ui": "^2.0.0",
     "@types/react-dom": "^19.2.3",
     "@zed-industries/claude-agent-acp": "^0.23.1",
-    "ink": "^7.0.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "zod": "^4.3.6"
