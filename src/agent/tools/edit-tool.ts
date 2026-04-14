@@ -96,6 +96,9 @@ export const editTool = tool({
       throw new Error("oldString cannot be empty");
     }
 
+    // Capture content before edit for diff
+    const oldContent = fs.readFileSync(absolutePath, "utf8");
+
     // Perform the edit
     const result = searchReplaceInFile(
       absolutePath,
@@ -104,6 +107,13 @@ export const editTool = tool({
       replaceAll,
     );
 
-    return `Successfully edited ${filePath}: ${result.changes} change(s) made.`;
+    const newContent = fs.readFileSync(absolutePath, "utf8");
+
+    return {
+      message: `Successfully edited ${filePath}: ${result.changes} change(s) made.`,
+      filePath,
+      oldContent,
+      newContent,
+    };
   },
 });

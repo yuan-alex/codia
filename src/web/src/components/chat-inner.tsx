@@ -8,8 +8,14 @@ import {
   FolderIcon,
   CornerDownLeftIcon,
   CommandIcon,
+  CheckIcon,
+  ChevronsUpDownIcon,
 } from "lucide-react";
-import { useAgent, type AgentMessage, type BackendType } from "@/hooks/use-agent";
+import {
+  useAgent,
+  type AgentMessage,
+  type BackendType,
+} from "@/hooks/use-agent";
 
 import {
   Conversation,
@@ -28,14 +34,33 @@ import {
   PromptInputSubmit,
   PromptInputFooter,
   PromptInputTools,
-  PromptInputSelect,
-  PromptInputSelectContent,
-  PromptInputSelectItem,
-  PromptInputSelectTrigger,
-  PromptInputSelectValue,
   PromptInputBody,
 } from "@/components/ai-elements/prompt-input";
+import {
+  ModelSelector,
+  ModelSelectorTrigger,
+  ModelSelectorContent,
+  ModelSelectorInput,
+  ModelSelectorList,
+  ModelSelectorEmpty,
+  ModelSelectorGroup,
+  ModelSelectorItem,
+  ModelSelectorLogo,
+  ModelSelectorName,
+} from "@/components/ai-elements/model-selector";
+import { Button } from "@/components/ui/button";
 import { ToolDisplay } from "@/components/ai-elements/tool-renderers";
+
+/** Extract provider name from a model ID like "anthropic:claude-sonnet-4-20250514" or "claude-sonnet-4-20250514" */
+function getProvider(modelId: string): string {
+  if (modelId.includes(":")) return modelId.split(":")[0];
+  if (modelId.startsWith("claude")) return "anthropic";
+  if (modelId.startsWith("gpt") || modelId.startsWith("o1") || modelId.startsWith("o3") || modelId.startsWith("o4")) return "openai";
+  if (modelId.startsWith("gemini")) return "google";
+  if (modelId.startsWith("mistral")) return "mistral";
+  if (modelId.startsWith("deepseek")) return "deepseek";
+  return "openai";
+}
 
 // Memoized wrapper around the (non-memoized) vendored ToolDisplay. When
 // use-agent preserves part identity across streaming flushes, unchanged tool
@@ -73,26 +98,34 @@ const SUGGESTIONS: {
   {
     icon: FileSearchIcon,
     title: "Explore the codebase",
-    prompt: "Give me a tour of this repository — the main entry points, the architecture, and what each top-level directory is responsible for.",
+    prompt:
+      "Give me a tour of this repository — the main entry points, the architecture, and what each top-level directory is responsible for.",
   },
   {
     icon: BugIcon,
     title: "Hunt down a bug",
-    prompt: "I'm seeing an unexpected behavior in this project. Help me trace it — ask me for details and then investigate the relevant files.",
+    prompt:
+      "I'm seeing an unexpected behavior in this project. Help me trace it — ask me for details and then investigate the relevant files.",
   },
   {
     icon: GitBranchIcon,
     title: "Refactor a module",
-    prompt: "Look for duplication or tangled logic I should clean up, then propose a refactor with concrete diffs.",
+    prompt:
+      "Look for duplication or tangled logic I should clean up, then propose a refactor with concrete diffs.",
   },
   {
     icon: TestTube2Icon,
     title: "Write tests",
-    prompt: "Find the most valuable untested code paths in this repo and write tests for them.",
+    prompt:
+      "Find the most valuable untested code paths in this repo and write tests for them.",
   },
 ];
 
-function EmptyState({ onSuggestion }: { onSuggestion: (text: string) => void }) {
+function EmptyState({
+  onSuggestion,
+}: {
+  onSuggestion: (text: string) => void;
+}) {
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
 
   useEffect(() => {
@@ -110,7 +143,10 @@ function EmptyState({ onSuggestion }: { onSuggestion: (text: string) => void }) 
           <div className="absolute size-24 rounded-full bg-[#d97757]/10 blur-2xl" />
           <div className="absolute size-16 rounded-full bg-[#d97757]/15 blur-xl" />
           <div className="relative size-14 rounded-2xl border border-[#d97757]/30 bg-gradient-to-br from-[#d97757]/20 to-[#d97757]/5 flex items-center justify-center shadow-lg shadow-[#d97757]/10">
-            <SparklesIcon className="size-6 text-[#d97757]" strokeWidth={1.75} />
+            <SparklesIcon
+              className="size-6 text-[#d97757]"
+              strokeWidth={1.75}
+            />
           </div>
         </div>
 
@@ -123,19 +159,26 @@ function EmptyState({ onSuggestion }: { onSuggestion: (text: string) => void }) 
             What shall we build?
           </h2>
           <p className="text-muted-foreground text-sm max-w-md text-center">
-            I can read files, run commands, edit code, and ship changes — just tell me what you need.
+            I can read files, run commands, edit code, and ship changes — just
+            tell me what you need.
           </p>
         </div>
 
         {/* Workspace chip */}
         {workspace && (
           <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-card/50 px-3 py-1.5 font-mono text-[11px] text-muted-foreground shadow-sm">
-            <FolderIcon className="size-3.5 text-[#d97757]" strokeWidth={1.75} />
+            <FolderIcon
+              className="size-3.5 text-[#d97757]"
+              strokeWidth={1.75}
+            />
             <span className="text-foreground/80">{workspace.displayPath}</span>
             {workspace.branch && (
               <>
                 <span className="text-border">│</span>
-                <GitBranchIcon className="size-3 text-muted-foreground" strokeWidth={1.75} />
+                <GitBranchIcon
+                  className="size-3 text-muted-foreground"
+                  strokeWidth={1.75}
+                />
                 <span>{workspace.branch}</span>
               </>
             )}
@@ -190,60 +233,58 @@ function EmptyState({ onSuggestion }: { onSuggestion: (text: string) => void }) 
   );
 }
 
-const MessageParts = memo(
-  function MessageParts({
-    message,
-    isLastMessage,
-    isStreaming,
-  }: {
-    message: AgentMessage;
-    isLastMessage: boolean;
-    isStreaming: boolean;
-  }) {
-    // Memoized: runs only when parts[] changes identity.
-    const reasoningText = useMemo(
-      () =>
-        message.parts
-          .filter((part) => part.type === "reasoning")
-          .map((part) => part.text)
-          .join("\n\n"),
-      [message.parts],
-    );
-    const hasReasoning = reasoningText.length > 0;
+const MessageParts = memo(function MessageParts({
+  message,
+  isLastMessage,
+  isStreaming,
+}: {
+  message: AgentMessage;
+  isLastMessage: boolean;
+  isStreaming: boolean;
+}) {
+  // Memoized: runs only when parts[] changes identity.
+  const reasoningText = useMemo(
+    () =>
+      message.parts
+        .filter((part) => part.type === "reasoning")
+        .map((part) => part.text)
+        .join("\n\n"),
+    [message.parts],
+  );
+  const hasReasoning = reasoningText.length > 0;
 
-    const lastPart = message.parts.at(-1);
-    const isReasoningStreaming =
-      isLastMessage && isStreaming && lastPart?.type === "reasoning";
+  const lastPart = message.parts.at(-1);
+  const isReasoningStreaming =
+    isLastMessage && isStreaming && lastPart?.type === "reasoning";
 
-    return (
-      <>
-        {hasReasoning && (
-          <Reasoning className="w-full" isStreaming={isReasoningStreaming}>
-            <ReasoningTrigger />
-            <ReasoningContent>{reasoningText}</ReasoningContent>
-          </Reasoning>
-        )}
-        {message.parts.map((part, i) => {
-          if (part.type === "text") {
-            return (
-              <MessageResponse key={`${message.id}-text-${i}`}>
-                {part.text}
-              </MessageResponse>
-            );
-          }
+  return (
+    <>
+      {hasReasoning && (
+        <Reasoning className="w-full" isStreaming={isReasoningStreaming}>
+          <ReasoningTrigger />
+          <ReasoningContent>{reasoningText}</ReasoningContent>
+        </Reasoning>
+      )}
+      {message.parts.map((part, i) => {
+        if (part.type === "text") {
+          return (
+            <MessageResponse key={`${message.id}-text-${i}`}>
+              {part.text}
+            </MessageResponse>
+          );
+        }
 
-          if (part.type === "dynamic-tool") {
-            return (
-              <MemoToolDisplay key={`${message.id}-tool-${i}`} part={part} />
-            );
-          }
+        if (part.type === "dynamic-tool") {
+          return (
+            <MemoToolDisplay key={`${message.id}-tool-${i}`} part={part} />
+          );
+        }
 
-          return null;
-        })}
-      </>
-    );
-  },
-);
+        return null;
+      })}
+    </>
+  );
+});
 
 export type ChatDebugInfo = {
   status: string;
@@ -368,9 +409,8 @@ export function ChatInner({
             </>
 
             {isStreaming &&
-              agent.messages[agent.messages.length - 1]?.role !== "assistant" && (
-                <Spinner />
-              )}
+              agent.messages[agent.messages.length - 1]?.role !==
+                "assistant" && <Spinner />}
           </ConversationContent>
           <ConversationScrollButton />
         </Conversation>
@@ -378,12 +418,18 @@ export function ChatInner({
 
       <PromptInput
         onSubmit={handleSubmit}
-        className="mt-4 w-full max-w-4xl mx-auto px-4 pb-4"
+        className="w-full max-w-4xl mx-auto px-4 pb-4"
       >
         <PromptInputBody>
           <PromptInputTextarea
             value={input}
-            placeholder={isLoading ? "Loading conversation..." : isReady ? "Message Codia..." : "Thinking..."}
+            placeholder={
+              isLoading
+                ? "Loading conversation..."
+                : isReady
+                  ? "Message Codia..."
+                  : "Thinking..."
+            }
             onChange={(e) => setInput(e.currentTarget.value)}
             disabled={!isReady}
           />
@@ -391,23 +437,50 @@ export function ChatInner({
         <PromptInputFooter>
           <PromptInputTools>
             {agent.models.length > 0 && (
-              <PromptInputSelect
-                value={agent.selectedModel}
-                onValueChange={agent.changeModel}
-                disabled={isStreaming}
-              >
-                <PromptInputSelectTrigger className="h-8 gap-1.5 rounded-lg px-2.5 text-xs">
-                  <SparklesIcon className="size-3.5 text-muted-foreground" />
-                  <PromptInputSelectValue />
-                </PromptInputSelectTrigger>
-                <PromptInputSelectContent align="start">
-                  {agent.models.map((m) => (
-                    <PromptInputSelectItem key={m.modelId} value={m.modelId}>
-                      {m.name}
-                    </PromptInputSelectItem>
-                  ))}
-                </PromptInputSelectContent>
-              </PromptInputSelect>
+              <ModelSelector>
+                <ModelSelectorTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 rounded-lg px-2.5 text-xs"
+                    disabled={isStreaming}
+                  >
+                    <ModelSelectorLogo
+                      provider={getProvider(agent.selectedModel)}
+                      className="size-3.5"
+                    />
+                    <span className="truncate max-w-32">
+                      {agent.models.find((m) => m.modelId === agent.selectedModel)?.name ?? agent.selectedModel}
+                    </span>
+                    <ChevronsUpDownIcon className="size-3 text-muted-foreground" />
+                  </Button>
+                </ModelSelectorTrigger>
+                <ModelSelectorContent>
+                  <ModelSelectorInput placeholder="Search models..." />
+                  <ModelSelectorList>
+                    <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
+                    <ModelSelectorGroup heading="Models">
+                      {agent.models.map((m) => (
+                        <ModelSelectorItem
+                          key={m.modelId}
+                          value={m.modelId}
+                          onSelect={() => agent.changeModel(m.modelId)}
+                          className="flex items-center gap-2"
+                        >
+                          <ModelSelectorLogo
+                            provider={getProvider(m.modelId)}
+                            className="size-4"
+                          />
+                          <ModelSelectorName>{m.name}</ModelSelectorName>
+                          {m.modelId === agent.selectedModel && (
+                            <CheckIcon className="size-3.5 text-primary" />
+                          )}
+                        </ModelSelectorItem>
+                      ))}
+                    </ModelSelectorGroup>
+                  </ModelSelectorList>
+                </ModelSelectorContent>
+              </ModelSelector>
             )}
           </PromptInputTools>
           <PromptInputSubmit

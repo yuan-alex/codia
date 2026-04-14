@@ -1,7 +1,7 @@
 import type { ServerWebSocket } from "bun";
 import type { ModelMessage } from "ai";
 import { agent } from "../../agent";
-import type { Backend, SessionResult, PromptResult, SessionListItem } from "./types";
+import { sendUpdate, type Backend, type SessionResult, type PromptResult, type SessionListItem } from "./types";
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -49,10 +49,6 @@ function toolTitle(toolName: string, args: Record<string, unknown>): string {
   }
 }
 
-function sendUpdate(ws: ServerWebSocket<any>, update: Record<string, unknown>) {
-  ws.send(JSON.stringify({ type: "update", update }));
-}
-
 // ── Codia Backend ────────────────────────────────────────────────
 
 export class CodiaBackend implements Backend {
@@ -95,7 +91,7 @@ export class CodiaBackend implements Backend {
         const text = typeof msg.content === "string"
           ? msg.content
           : Array.isArray(msg.content)
-            ? msg.content.filter((p: any) => p.type === "text").map((p: any) => p.text).join("")
+            ? (msg.content as any[]).filter((p) => p.type === "text").map((p) => p.text).join("")
             : "";
         if (text) {
           sendUpdate(ws, {
@@ -104,15 +100,67 @@ export class CodiaBackend implements Backend {
           });
         }
       } else if (msg.role === "assistant") {
-        const text = typeof msg.content === "string"
-          ? msg.content
-          : Array.isArray(msg.content)
-            ? msg.content.filter((p: any) => p.type === "text").map((p: any) => p.text).join("")
-            : "";
-        if (text) {
+        const parts: any[] = typeof msg.content === "string"
+          ? [{ type: "text", text: msg.content }]
+          : Array.isArray(msg.content) ? msg.content : [];
+
+        for (const part of parts) {
+          if (part.type === "text" && part.text) {
+            sendUpdate(ws, {
+              sessionUpdate: "agent_message_chunk",
+              content: { type: "text", text: part.text },
+            });
+          } else if (part.type === "tool-call") {
+            const args = (part.args ?? part.input ?? {}) as Record<string, unknown>;
+            sendUpdate(ws, {
+              sessionUpdate: "tool_call",
+              toolCallId: part.toolCallId,
+              title: toolTitle(part.toolName, args),
+              kind: mapToolKind(part.toolName),
+              status: "completed",
+              _meta: { claudeCode: { toolName: part.toolName } },
+              rawInput: args,
+              content: [],
+              locations: [],
+            });
+          }
+        }
+      } else if (msg.role === "tool") {
+        const parts: any[] = Array.isArray(msg.content) ? msg.content : [];
+        for (const part of parts) {
+          if (part.type !== "tool-result") continue;
+          const output = part.result ?? part.output ?? "";
+          const isDiffResult =
+            output &&
+            typeof output === "object" &&
+            "oldContent" in output &&
+            "newContent" in output &&
+            "filePath" in output;
+
           sendUpdate(ws, {
-            sessionUpdate: "agent_message_chunk",
-            content: { type: "text", text },
+            sessionUpdate: "tool_call_update",
+            toolCallId: part.toolCallId,
+            status: "completed",
+            content: isDiffResult
+              ? [
+                  {
+                    type: "diff",
+                    path: output.filePath,
+                    oldText: output.oldContent,
+                    newText: output.newContent,
+                  },
+                ]
+              : [
+                  {
+                    type: "content",
+                    content: {
+                      type: "text",
+                      text: typeof output === "string"
+                        ? output
+                        : JSON.stringify(output),
+                    },
+                  },
+                ],
           });
         }
       }
@@ -193,21 +241,37 @@ export class CodiaBackend implements Backend {
 
           case "tool-result": {
             const output = (part as any).result ?? (part as any).output ?? "";
+            const isDiffResult =
+              output &&
+              typeof output === "object" &&
+              "oldContent" in output &&
+              "newContent" in output &&
+              "filePath" in output;
+
             sendUpdate(ws, {
               sessionUpdate: "tool_call_update",
               toolCallId: part.toolCallId,
               status: "completed",
-              content: [
-                {
-                  type: "content",
-                  content: {
-                    type: "text",
-                    text: typeof output === "string"
-                      ? output
-                      : JSON.stringify(output),
-                  },
-                },
-              ],
+              content: isDiffResult
+                ? [
+                    {
+                      type: "diff",
+                      path: output.filePath,
+                      oldText: output.oldContent,
+                      newText: output.newContent,
+                    },
+                  ]
+                : [
+                    {
+                      type: "content",
+                      content: {
+                        type: "text",
+                        text: typeof output === "string"
+                          ? output
+                          : JSON.stringify(output),
+                      },
+                    },
+                  ],
             });
             break;
           }

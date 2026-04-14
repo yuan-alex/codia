@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
-import { Button } from "@/components/ui/button";
 
 import { ChatInner, type ChatDebugInfo } from "./components/chat-inner";
 import { DebugPanel } from "./components/debug-panel";
-import { AcpInspector } from "./components/acp-inspector";
-import { Plus, MessageSquare, SparklesIcon, SunIcon, MoonIcon, BotIcon, CodeIcon } from "lucide-react";
+import { AppSidebar } from "./components/app-sidebar";
+import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
 import type { BackendType } from "./hooks/use-agent";
 
 function useTheme() {
@@ -27,13 +27,6 @@ function useTheme() {
   return { isDark, toggle: () => setIsDark((v) => !v) };
 }
 
-type SessionListItem = {
-  sessionId: string;
-  cwd?: string;
-  title?: string;
-  lastUpdated?: string;
-};
-
 function getSessionIdFromUrl(): string | null {
   const params = new URLSearchParams(window.location.search);
   return params.get("session");
@@ -51,24 +44,12 @@ function setSessionIdInUrl(sessionId: string | null) {
 
 export default function App() {
   const { isDark, toggle: toggleTheme } = useTheme();
-  const [sessions, setSessions] = useState<SessionListItem[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(
     getSessionIdFromUrl,
   );
   const [newSessionKey, setNewSessionKey] = useState(0);
   const [backend, setBackend] = useState<BackendType>("acp");
   const [chatDebug, setChatDebug] = useState<ChatDebugInfo | null>(null);
-
-  const fetchSessions = useCallback(() => {
-    fetch("/api/sessions")
-      .then((r) => r.json())
-      .then((data) => setSessions(data.sessions || []))
-      .catch((err) => console.error("Failed to fetch sessions:", err));
-  }, []);
-
-  useEffect(() => {
-    fetchSessions();
-  }, [fetchSessions]);
 
   const startNewSession = () => {
     setActiveSessionId(null);
@@ -85,94 +66,49 @@ export default function App() {
     (id: string) => {
       setActiveSessionId(id);
       setSessionIdInUrl(id);
-      fetchSessions();
     },
-    [fetchSessions],
+    [],
   );
 
-  return (
-    <div className="flex h-screen">
-      {/* Sidebar */}
-      <div className="w-64 shrink-0 border-r border-border bg-card flex flex-col">
-        <div className="px-4 py-4 border-b border-border flex items-center gap-2.5">
-          <div className="relative flex size-7 items-center justify-center rounded-lg border border-[#d97757]/30 bg-gradient-to-br from-[#d97757]/20 to-[#d97757]/5">
-            <SparklesIcon className="size-3.5 text-[#d97757]" strokeWidth={2} />
-          </div>
-          <div className="flex flex-col leading-tight flex-1 min-w-0">
-            <h1 className="text-sm font-semibold tracking-tight">Codia</h1>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-medium">
-              {backend === "acp" ? "Claude Code" : "Codia Agent"}
-            </span>
-          </div>
-          <button
-            onClick={() => {
-              const next = backend === "acp" ? "codia" : "acp";
-              setBackend(next);
-              startNewSession();
-            }}
-            className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            aria-label={backend === "acp" ? "Switch to Codia Agent" : "Switch to Claude Code"}
-            title={backend === "acp" ? "Switch to Codia Agent" : "Switch to Claude Code"}
-          >
-            {backend === "acp" ? <BotIcon className="size-3.5" /> : <CodeIcon className="size-3.5" />}
-          </button>
-          <button
-            onClick={toggleTheme}
-            className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-          >
-            {isDark ? <SunIcon className="size-3.5" /> : <MoonIcon className="size-3.5" />}
-          </button>
-        </div>
-        <div className="p-3">
-          <Button
-            onClick={startNewSession}
-            className="w-full justify-start gap-2"
-            variant="outline"
-          >
-            <Plus className="size-4" />
-            New Chat
-          </Button>
-        </div>
-        <div className="flex-1 min-h-0 overflow-y-auto px-3">
-          <div className="flex flex-col gap-0.5 pb-3">
-            {sessions.map((s) => (
-              <button
-                key={s.sessionId}
-                onClick={() => selectSession(s.sessionId)}
-                className={`flex items-center gap-2 w-full rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-muted ${
-                  activeSessionId === s.sessionId
-                    ? "bg-muted font-medium"
-                    : "text-muted-foreground"
-                }`}
-              >
-                <MessageSquare className="size-4 shrink-0" />
-                <span className="truncate">
-                  {s.title || s.sessionId.slice(0, 8)}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+  const handleToggleBackend = () => {
+    setBackend((b) => (b === "acp" ? "codia" : "acp"));
+    startNewSession();
+  };
 
-      {/* Main chat area */}
-      <div className="flex-1 min-w-0">
-        <ChatInner
-          key={activeSessionId ?? `new-${newSessionKey}-${backend}`}
-          sessionId={activeSessionId}
-          backend={backend}
-          onSessionReady={handleSessionReady}
-          onPromptDone={fetchSessions}
-          onDebugInfo={import.meta.env.DEV ? setChatDebug : undefined}
-        />
-      </div>
+  return (
+    <SidebarProvider className="h-svh !min-h-0">
+      <AppSidebar
+        activeSessionId={activeSessionId}
+        backend={backend}
+        isDark={isDark}
+        onNewSession={startNewSession}
+        onSelectSession={selectSession}
+        onToggleBackend={handleToggleBackend}
+        onToggleTheme={toggleTheme}
+      />
+      <SidebarInset className="overflow-hidden">
+        <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <span className="text-sm text-muted-foreground">
+            {activeSessionId ? "Chat" : "New Chat"}
+          </span>
+        </header>
+        <div className="flex-1 min-h-0">
+          <ChatInner
+            key={activeSessionId ?? `new-${newSessionKey}-${backend}`}
+            sessionId={activeSessionId}
+            backend={backend}
+            onSessionReady={handleSessionReady}
+            onDebugInfo={import.meta.env.DEV ? setChatDebug : undefined}
+          />
+        </div>
+      </SidebarInset>
 
       {import.meta.env.DEV && chatDebug && (
         <DebugPanel
           data={{
             activeSessionId: activeSessionId ?? "(new session)",
-            sessionCount: sessions.length,
             "agent.status": chatDebug.status,
             "agent.sessionId": chatDebug.sessionId,
             "agent.error": chatDebug.error,
@@ -183,8 +119,6 @@ export default function App() {
           }}
         />
       )}
-
-      <AcpInspector />
-    </div>
+    </SidebarProvider>
   );
 }

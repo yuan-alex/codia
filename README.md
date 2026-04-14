@@ -4,9 +4,9 @@ A web-based coding agent UI built with Bun, the AI SDK, and React.
 
 ## Features
 
-- **Two backends** — Claude Code (via ACP) and a custom Codia Agent using any OpenAI-compatible API
-- **Claude Code backend** — proxies to Claude Code via ACP (Agent Client Protocol), with session management and history replay
-- **Codia Agent backend** — custom coding agent with built-in tools (`ls`, `cat`, `grep`, `edit`, `bash`)
+- **Two backends** — Claude Code and a custom Codia Agent using any OpenAI-compatible API
+- **Claude Code backend** — spawns `claude --output-format stream-json` per prompt, with session management, history replay, and model switching (Sonnet, Opus, Haiku)
+- **Codia Agent backend** — custom coding agent with built-in tools (`ls`, `cat`, `grep`, `edit`, `bash`), powered by Kimi K2 via Fireworks
 - **Session management** — persistent Claude Code sessions with list/load/resume support
 
 ## Installation
@@ -32,11 +32,11 @@ Starts the backend server and Vite dev server concurrently.
 ```
 src/
 ├── agent/            # Codia Agent logic
-│   ├── index.ts      # Agent setup, system prompt, model config
+│   ├── index.ts      # Agent setup, system prompt, model config (Kimi K2)
 │   └── tools/        # Tool implementations (bash, cat, edit, grep, ls)
 ├── server/           # Backend server, API, and session management
-│   ├── index.ts      # Bun.serve entry point
-│   ├── backends/     # ACP and Codia Agent backend implementations
+│   ├── index.ts      # Bun.serve entry point (WebSocket + REST)
+│   ├── backends/     # stream-json and Codia Agent backend implementations
 │   └── sensitive-paths.ts
 └── web/              # Web UI (React + Vite)
 ```
@@ -57,7 +57,7 @@ Bun loads `.env` automatically.
 - `OPENAI_API_KEY` — API key
 
 **Claude Code backend**:
-- Requires `claude-agent-acp` (installed as a dependency)
+- Requires the `claude` CLI to be installed and on `PATH`
 - `PORT` — server port (default: 1337)
 
 ## License

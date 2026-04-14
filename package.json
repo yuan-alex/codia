@@ -11,9 +11,7 @@
     "format": "biome format --write ."
   },
   "dependencies": {
-    "@agentclientprotocol/sdk": "^0.18.2",
     "@types/react-dom": "^19.2.3",
-    "@zed-industries/claude-agent-acp": "^0.23.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "zod": "^4.3.6"

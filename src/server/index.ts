@@ -1,40 +1,36 @@
 import { createAgentUIStreamResponse } from "ai";
 import { config } from "./config";
-import { AcpBackend } from "./backends/acp-backend";
+import { StreamJsonBackend } from "./backends/stream-json-backend";
 import { CodiaBackend } from "./backends/codia-backend";
-import type { Backend } from "./backends/types";
+import { sendJson, type Backend } from "./backends/types";
 import { agent } from "../agent";
 
-// ── Per-connection state ───────────────────────────────────────────
+// ── Per-connection state ───────────────────────────────────────────────
 
 type WsData = {
   sessionId: string | null;
 };
 
-// ── Backends ───────────────────────────────────────────────────────
+// ── Backends ───────────────────────────────────────────────────────────
 
-const acpBackend = new AcpBackend();
+const claudeBackend = new StreamJsonBackend();
 const codiaBackend = new CodiaBackend();
 
 const backends: Record<string, Backend> = {
-  acp: acpBackend,
+  acp: claudeBackend,
   codia: codiaBackend,
 };
 
 // Map sessionId -> backend so subsequent messages route correctly
 const sessionBackendMap = new Map<string, Backend>();
 
-// ── Helpers ─────────────────────────────────────────────────────────
-
-function sendJson(ws: any, payload: Record<string, unknown>) {
-  ws.send(JSON.stringify(payload));
-}
+// ── Helpers ─────────────────────────────────────────────────────────────
 
 function sendError(ws: any, error: unknown) {
   sendJson(ws, { type: "error", message: String(error) });
 }
 
-// ── Bun server ──────────────────────────────────────────────────────
+// ── Bun server ──────────────────────────────────────────────────────────
 
 Bun.serve<WsData>({
   port: config.port,
@@ -42,12 +38,6 @@ Bun.serve<WsData>({
 
   async fetch(req, server) {
     const url = new URL(req.url);
-
-    // Debug WebSocket — streams raw ACP messages to the browser
-    if (url.pathname === "/ws/debug") {
-      if (server.upgrade(req, { data: { sessionId: "__debug__" } })) return;
-      return new Response("WebSocket upgrade failed", { status: 500 });
-    }
 
     // WebSocket upgrade
     if (url.pathname === "/ws") {
@@ -58,13 +48,13 @@ Bun.serve<WsData>({
     // REST: list sessions (merge both backends)
     if (req.method === "GET" && url.pathname === "/api/sessions") {
       try {
-        const [acpSessions, codiaSessions] = await Promise.all([
-          acpBackend.listSessions().catch(() => []),
+        const [claudeSessions, codiaSessions] = await Promise.all([
+          claudeBackend.listSessions().catch(() => []),
           codiaBackend.listSessions().catch(() => []),
         ]);
         return Response.json({
           sessions: [
-            ...acpSessions.map((s) => ({ ...s, backend: "acp" })),
+            ...claudeSessions.map((s) => ({ ...s, backend: "acp" })),
             ...codiaSessions.map((s) => ({ ...s, backend: "codia" })),
           ],
         });
@@ -95,14 +85,9 @@ Bun.serve<WsData>({
       return Response.json({ cwd, displayPath, basename, branch });
     }
 
-    // REST: debug log history
-    if (req.method === "GET" && url.pathname === "/api/debug/log") {
-      return Response.json({ log: acpBackend.getDebugLog() });
-    }
-
-    // REST: AI SDK chat endpoint (used by the TUI via DefaultChatTransport)
+    // REST: AI SDK chat endpoint
     if (req.method === "POST" && url.pathname === "/api/chat") {
-      const body = await req.json();
+      const body = await req.json() as { messages?: unknown[] };
       return createAgentUIStreamResponse({
         agent,
         uiMessages: body.messages ?? [],
@@ -113,18 +98,11 @@ Bun.serve<WsData>({
   },
 
   websocket: {
-    async open(ws) {
-      if (ws.data.sessionId === "__debug__") {
-        console.log("[ws] Debug client connected");
-        acpBackend.addDebugSubscriber(ws);
-        return;
-      }
+    open(ws) {
       console.log("[ws] Client connected");
     },
 
     async message(ws, raw) {
-      if (ws.data.sessionId === "__debug__") return;
-
       let msg: any;
       try {
         msg = JSON.parse(String(raw));
@@ -157,12 +135,8 @@ Bun.serve<WsData>({
       }
 
       if (msg.type === "session/load") {
-        // Try both backends to find the session
-        let backend: Backend | undefined = sessionBackendMap.get(msg.sessionId);
-        if (!backend) {
-          // Default to ACP for sessions we haven't tracked (e.g. from a previous server run)
-          backend = acpBackend;
-        }
+        const backend: Backend =
+          sessionBackendMap.get(msg.sessionId) ?? claudeBackend;
         try {
           const result = await backend.handleLoadSession(ws, msg.sessionId);
           ws.data.sessionId = msg.sessionId;
@@ -231,17 +205,9 @@ Bun.serve<WsData>({
     },
 
     close(ws) {
-      if (ws.data.sessionId === "__debug__") {
-        console.log("[ws] Debug client disconnected");
-        acpBackend.removeDebugSubscriber(ws);
-        return;
-      }
       console.log("[ws] Client disconnected");
     },
   },
 });
 
 console.log(`Codia server running on http://localhost:${config.port}`);
-
-// Warm up the ACP subprocess
-acpBackend.warmUp();

@@ -46,3 +46,8 @@ export interface Backend {
 export function sendJson(ws: ServerWebSocket<any>, payload: Record<string, unknown>) {
   ws.send(JSON.stringify(payload));
 }
+
+/** Send an update message over a WebSocket. */
+export function sendUpdate(ws: ServerWebSocket<any>, update: Record<string, unknown>) {
+  ws.send(JSON.stringify({ type: "update", update }));
+}
