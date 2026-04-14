@@ -106,18 +106,7 @@ export default function App() {
       </SidebarInset>
 
       {import.meta.env.DEV && chatDebug && (
-        <DebugPanel
-          data={{
-            activeSessionId: activeSessionId ?? "(new session)",
-            "agent.status": chatDebug.status,
-            "agent.sessionId": chatDebug.sessionId,
-            "agent.error": chatDebug.error,
-            "agent.messageCount": chatDebug.messageCount,
-            "agent.selectedModel": chatDebug.selectedModel,
-            "agent.lastMessageRole": chatDebug.lastMessageRole ?? "none",
-            "agent.models": chatDebug.models,
-          }}
-        />
+        <DebugPanel data={chatDebug} />
       )}
     </SidebarProvider>
   );

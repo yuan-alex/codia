@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 
 // ── ANSI stripping ───────────────────────────────────────────────────
 
@@ -75,6 +75,7 @@ type ServerMessage =
       currentModelId: string | null;
     }
   | { type: "update"; update: SessionUpdate }
+  | { type: "debug"; event: unknown }
   | {
       type: "prompt/done";
       stopReason: string;
@@ -106,6 +107,8 @@ export function useAgent(sessionId: string | null, backend: BackendType = "acp")
     null,
   );
   const [error, setError] = useState<string | null>(null);
+  const [rawMessages, setRawMessages] = useState<unknown[]>([]);
+  const [debugEvents, setDebugEvents] = useState<unknown[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const currentAssistantRef = useRef<AgentMessage | null>(null);
   const flushRafRef = useRef<number | null>(null);
@@ -338,6 +341,7 @@ export function useAgent(sessionId: string | null, backend: BackendType = "acp")
 
     ws.onmessage = (event) => {
       const msg: ServerMessage = JSON.parse(event.data);
+      setRawMessages((prev) => [...prev, msg]);
 
       if (msg.type === "session/ready") {
         setResolvedSessionId(msg.sessionId);
@@ -348,6 +352,10 @@ export function useAgent(sessionId: string | null, backend: BackendType = "acp")
         if (currentAssistantRef.current) {
           finalizeAssistant();
         }
+      }
+
+      if (msg.type === "debug") {
+        setDebugEvents((prev) => [...prev, msg.event]);
       }
 
       if (msg.type === "update") {
@@ -396,18 +404,21 @@ export function useAgent(sessionId: string | null, backend: BackendType = "acp")
   }, [sessionId, backend]);
 
   // Merge stable messages with the in-progress streaming message for consumers
-  const allMessages =
-    streamingMessage !== null
-      ? (() => {
-          const idx = messages.findIndex((m) => m.id === streamingMessage.id);
-          if (idx >= 0) {
-            const next = [...messages];
-            next[idx] = streamingMessage;
-            return next;
-          }
-          return [...messages, streamingMessage];
-        })()
-      : messages;
+  const allMessages = useMemo(
+    () =>
+      streamingMessage !== null
+        ? (() => {
+            const idx = messages.findIndex((m) => m.id === streamingMessage.id);
+            if (idx >= 0) {
+              const next = [...messages];
+              next[idx] = streamingMessage;
+              return next;
+            }
+            return [...messages, streamingMessage];
+          })()
+        : messages,
+    [messages, streamingMessage],
+  );
 
   const sendMessage = useCallback((text: string) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
@@ -439,6 +450,8 @@ export function useAgent(sessionId: string | null, backend: BackendType = "acp")
 
   return {
     messages: allMessages,
+    rawMessages,
+    debugEvents,
     status,
     models,
     selectedModel,

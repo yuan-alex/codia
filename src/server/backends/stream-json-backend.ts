@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { readdir, stat } from "node:fs/promises";
 import type { ServerWebSocket } from "bun";
-import { sendUpdate, type Backend, type SessionResult, type PromptResult, type SessionListItem } from "./types";
+import { sendJson, sendUpdate, type Backend, type SessionResult, type PromptResult, type SessionListItem } from "./types";
 
 // ── Constants ─────────────────────────────────────────────────────────
 
@@ -82,6 +82,46 @@ function emitDelta(
     sessionUpdate: kind === "text" ? "agent_message_chunk" : "agent_thought_chunk",
     content: { type: "text", text: delta },
   });
+}
+
+/**
+ * Build tool result content blocks from a JSONL entry.
+ * If the entry has a `toolUseResult` with structured edit data (filePath,
+ * oldString/newString, structuredPatch), emit a diff block so the UI can
+ * render it properly. Otherwise fall back to the plain text from the
+ * tool_result content.
+ */
+function buildToolResultContent(entry: any, block: any): unknown[] {
+  const tur = entry.toolUseResult;
+
+  // If we have structured edit result data, emit a diff block
+  if (tur && tur.filePath && (tur.newString != null || tur.oldString != null || tur.structuredPatch)) {
+    const content: unknown[] = [
+      { type: "diff", path: tur.filePath, oldText: tur.oldString ?? "", newText: tur.newString ?? "" },
+    ];
+    // Also include the plain text confirmation as secondary content
+    const text = extractToolResultText(block);
+    if (text) {
+      content.push({ type: "content", content: { type: "text", text } });
+    }
+    return content;
+  }
+
+  // Fallback: plain text only
+  const text = extractToolResultText(block);
+  return [{ type: "content", content: { type: "text", text } }];
+}
+
+/** Extract plain text from a tool_result block's content. */
+function extractToolResultText(block: any): string {
+  return Array.isArray(block.content)
+    ? block.content
+        .filter((c: any) => c.type === "text")
+        .map((c: any) => c.text as string)
+        .join("")
+    : typeof block.content === "string"
+      ? block.content
+      : "";
 }
 
 // ── On-disk session helpers ──────────────────────────────────────────
@@ -206,19 +246,12 @@ export class StreamJsonBackend implements Backend {
                 content: { type: "text", text: block.text },
               });
             } else if (block.type === "tool_result") {
-              const text = Array.isArray(block.content)
-                ? block.content
-                    .filter((c: any) => c.type === "text")
-                    .map((c: any) => c.text as string)
-                    .join("")
-                : typeof block.content === "string"
-                  ? block.content
-                  : "";
+              const resultContent = buildToolResultContent(entry, block);
               sendUpdate(ws, {
                 sessionUpdate: "tool_call_update",
                 toolCallId: block.tool_use_id,
                 status: block.is_error ? "failed" : "completed",
-                content: [{ type: "content", content: { type: "text", text } }],
+                content: resultContent,
               });
             }
           }
@@ -327,6 +360,7 @@ export class StreamJsonBackend implements Backend {
           if (!line) continue;
           let event: any;
           try { event = JSON.parse(line); } catch { continue; }
+          sendJson(ws, { type: "debug", event });
           this.processEvent(ws, session, event, state);
         }
       }
@@ -336,6 +370,7 @@ export class StreamJsonBackend implements Backend {
       if (trailing) {
         try {
           const event = JSON.parse(trailing);
+          sendJson(ws, { type: "debug", event });
           this.processEvent(ws, session, event, state);
         } catch {}
       }
@@ -398,19 +433,12 @@ export class StreamJsonBackend implements Backend {
       case "user": {
         for (const block of (event.message?.content ?? [])) {
           if (block.type === "tool_result") {
-            const text = Array.isArray(block.content)
-              ? block.content
-                  .filter((c: any) => c.type === "text")
-                  .map((c: any) => c.text as string)
-                  .join("")
-              : typeof block.content === "string"
-                ? block.content
-                : "";
+            const resultContent = buildToolResultContent(event, block);
             sendUpdate(ws, {
               sessionUpdate: "tool_call_update",
               toolCallId: block.tool_use_id,
               status: block.is_error ? "failed" : "completed",
-              content: [{ type: "content", content: { type: "text", text } }],
+              content: resultContent,
             });
           }
         }

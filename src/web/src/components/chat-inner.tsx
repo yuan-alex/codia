@@ -10,6 +10,9 @@ import {
   CommandIcon,
   CheckIcon,
   ChevronsUpDownIcon,
+  LoaderIcon,
+  CheckCircle2Icon,
+  CircleXIcon,
 } from "lucide-react";
 import {
   useAgent,
@@ -81,6 +84,11 @@ import {
   ReasoningContent,
   ReasoningTrigger,
 } from "@/components/ai-elements/reasoning";
+import {
+  Task,
+  TaskTrigger,
+  TaskContent,
+} from "@/components/ai-elements/task";
 import { Spinner } from "@/components/ui/spinner";
 
 type Workspace = {
@@ -233,6 +241,105 @@ function EmptyState({
   );
 }
 
+/** Group consecutive parts of the same type into segments for rendering. */
+type Segment =
+  | { type: "text"; parts: { text: string; index: number }[] }
+  | { type: "tools"; parts: { part: ToolPartProp; index: number }[] };
+
+function groupParts(parts: AgentMessage["parts"]): Segment[] {
+  const segments: Segment[] = [];
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    if (part.type === "reasoning") continue; // handled separately
+    if (part.type === "text") {
+      const last = segments[segments.length - 1];
+      if (last?.type === "text") {
+        last.parts.push({ text: part.text, index: i });
+      } else {
+        segments.push({ type: "text", parts: [{ text: part.text, index: i }] });
+      }
+    } else if (part.type === "dynamic-tool") {
+      const last = segments[segments.length - 1];
+      if (last?.type === "tools") {
+        last.parts.push({ part, index: i });
+      } else {
+        segments.push({ type: "tools", parts: [{ part, index: i }] });
+      }
+    }
+  }
+  return segments;
+}
+
+const ToolGroupSummary = memo(function ToolGroupSummary({ tools }: { tools: ToolPartProp[] }) {
+  const completed = tools.filter((t) => t.state === "completed").length;
+  const failed = tools.filter((t) => t.state === "failed").length;
+  const active = tools.some(
+    (t) => t.state === "pending" || t.state === "in_progress",
+  );
+
+  if (active) {
+    return (
+      <span className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
+        <LoaderIcon className="size-3 animate-spin text-blue-500" />
+        {completed}/{tools.length}
+      </span>
+    );
+  }
+  if (failed > 0) {
+    return (
+      <span className="ml-auto flex items-center gap-1.5 text-xs text-destructive">
+        <CircleXIcon className="size-3" />
+        {failed} failed
+      </span>
+    );
+  }
+  return (
+    <span className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
+      <CheckCircle2Icon className="size-3 text-green-500" />
+      {completed} done
+    </span>
+  );
+});
+
+const ToolGroup = memo(function ToolGroup({
+  tools,
+  messageId,
+  isActive,
+}: {
+  tools: { part: ToolPartProp; index: number }[];
+  messageId: string;
+  isActive: boolean;
+}) {
+  if (tools.length === 1) {
+    return (
+      <MemoToolDisplay
+        key={`${messageId}-tool-${tools[0].index}`}
+        part={tools[0].part}
+      />
+    );
+  }
+
+  const allParts = tools.map((t) => t.part);
+  const label = `${tools.length} actions`;
+
+  return (
+    <Task defaultOpen={isActive} className="w-full">
+      <TaskTrigger title={label}>
+        <div className="flex w-full cursor-pointer items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm transition-colors hover:bg-accent/50">
+          <SparklesIcon className="size-4 text-muted-foreground" />
+          <span className="font-medium">{label}</span>
+          <ToolGroupSummary tools={allParts} />
+        </div>
+      </TaskTrigger>
+      <TaskContent>
+        {tools.map(({ part, index }) => (
+          <MemoToolDisplay key={`${messageId}-tool-${index}`} part={part} />
+        ))}
+      </TaskContent>
+    </Task>
+  );
+});
+
 const MessageParts = memo(function MessageParts({
   message,
   isLastMessage,
@@ -257,6 +364,8 @@ const MessageParts = memo(function MessageParts({
   const isReasoningStreaming =
     isLastMessage && isStreaming && lastPart?.type === "reasoning";
 
+  const segments = useMemo(() => groupParts(message.parts), [message.parts]);
+
   return (
     <>
       {hasReasoning && (
@@ -265,22 +374,26 @@ const MessageParts = memo(function MessageParts({
           <ReasoningContent>{reasoningText}</ReasoningContent>
         </Reasoning>
       )}
-      {message.parts.map((part, i) => {
-        if (part.type === "text") {
-          return (
-            <MessageResponse key={`${message.id}-text-${i}`}>
-              {part.text}
+      {segments.map((segment, si) => {
+        if (segment.type === "text") {
+          return segment.parts.map(({ text, index }) => (
+            <MessageResponse key={`${message.id}-text-${index}`}>
+              {text}
             </MessageResponse>
-          );
+          ));
         }
-
-        if (part.type === "dynamic-tool") {
-          return (
-            <MemoToolDisplay key={`${message.id}-tool-${i}`} part={part} />
-          );
-        }
-
-        return null;
+        // Tool group
+        const hasActive = isLastMessage && isStreaming && segment.parts.some(
+          ({ part }) => part.state === "pending" || part.state === "in_progress",
+        );
+        return (
+          <ToolGroup
+            key={`${message.id}-toolgroup-${si}`}
+            tools={segment.parts}
+            messageId={message.id}
+            isActive={hasActive}
+          />
+        );
       })}
     </>
   );
@@ -294,6 +407,9 @@ export type ChatDebugInfo = {
   models: string[];
   lastMessageRole?: string;
   sessionId: string | null;
+  messages: AgentMessage[];
+  rawMessages: unknown[];
+  debugEvents: unknown[];
 };
 
 export function ChatInner({
@@ -329,8 +445,6 @@ export function ChatInner({
     prevStatusRef.current = agent.status;
   }, [agent.status]);
 
-  // Debug info — intentionally omits the full messages array (it's heavy and
-  // would cause DebugPanel to JSON.stringify it on every change).
   const messageCount = agent.messages.length;
   const lastMessageRole = agent.messages.at(-1)?.role;
   useEffect(() => {
@@ -342,6 +456,9 @@ export function ChatInner({
       models: agent.models.map((m) => m.modelId),
       lastMessageRole,
       sessionId: agent.sessionId,
+      messages: agent.messages,
+      rawMessages: agent.rawMessages,
+      debugEvents: agent.debugEvents,
     });
   }, [
     agent.status,
@@ -351,6 +468,9 @@ export function ChatInner({
     agent.models,
     messageCount,
     lastMessageRole,
+    agent.messages,
+    agent.rawMessages,
+    agent.debugEvents,
     onDebugInfo,
   ]);
 
