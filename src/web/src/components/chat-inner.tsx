@@ -8,7 +8,16 @@ import {
   LoaderIcon,
   CheckCircle2Icon,
   CircleXIcon,
+  BrainIcon,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { useAgent, type AgentMessage } from "@/hooks/use-agent";
 import { useSlashCommands } from "@/hooks/use-slash-commands";
 import { SlashCommandMenu } from "@/components/slash-command-menu";
@@ -348,6 +357,19 @@ export type ChatDebugInfo = {
   debugEvents: unknown[];
 };
 
+type EffortLevel = "off" | "low" | "medium" | "high" | "max";
+
+const EFFORT_LEVELS: {
+  id: EffortLevel;
+  label: string;
+}[] = [
+  { id: "off", label: "Off" },
+  { id: "low", label: "Low" },
+  { id: "medium", label: "Medium" },
+  { id: "high", label: "High" },
+  { id: "max", label: "Max" },
+];
+
 export function ChatInner({
   sessionId,
   onSessionReady,
@@ -360,7 +382,12 @@ export function ChatInner({
   onDebugInfo?: (info: ChatDebugInfo) => void;
 }) {
   const [input, setInput] = useState("");
+  const [effort, setEffort] = useState<EffortLevel>("medium");
   const agent = useAgent(sessionId);
+
+  useEffect(() => {
+    if (agent.status === "ready") agent.changeEffort(effort);
+  }, [agent.status, effort]);
   const handleSuggestion = (text: string) => setInput(text);
   const prevStatusRef = useRef(agent.status);
 
@@ -426,6 +453,8 @@ export function ChatInner({
     agent.sendMessage(message.text);
     setInput("");
   };
+
+  const activeEffort = EFFORT_LEVELS.find((m) => m.id === effort)!;
 
   if (agent.status === "error" && agent.messages.length === 0) {
     return (
@@ -505,6 +534,39 @@ export function ChatInner({
           </PromptInputBody>
           <PromptInputFooter>
             <PromptInputTools>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 rounded-lg px-2.5 text-xs"
+                    disabled={isStreaming}
+                  >
+                    <BrainIcon className="size-3.5" />
+                    <span className="truncate">{activeEffort.label}</span>
+                    <ChevronsUpDownIcon className="size-3 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-56">
+                  <DropdownMenuLabel>Thinking effort</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {EFFORT_LEVELS.map((m) => (
+                    <DropdownMenuItem
+                      key={m.id}
+                      onSelect={() => setEffort(m.id)}
+                      className="flex items-start gap-2"
+                    >
+                      <CheckIcon
+                        className={
+                          "size-3.5 " +
+                          (m.id === effort ? "text-primary" : "opacity-0")
+                        }
+                      />
+                      <span className="text-sm">{m.label}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
               {agent.models.length > 0 && (
                 <ModelSelector>
                   <ModelSelectorTrigger asChild>

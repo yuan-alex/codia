@@ -170,6 +170,20 @@ Bun.serve<WsData>({
           sendError(ws, error);
         }
       }
+
+      if (msg.type === "set_effort") {
+        const sessionId = ws.data.sessionId;
+        if (!sessionId) return;
+        const backend = sessionBackendMap.get(sessionId);
+        if (!backend?.handleSetEffort) return;
+        try {
+          const effort = await backend.handleSetEffort(sessionId, msg.effort);
+          sendJson(ws, { type: "effort/set", effort });
+        } catch (error) {
+          console.error("[ws] set_effort error:", error);
+          sendError(ws, error);
+        }
+      }
     },
 
     close(ws) {

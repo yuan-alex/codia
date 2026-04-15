@@ -447,6 +447,14 @@ export function useAgent(sessionId: string | null) {
     wsRef.current.send(JSON.stringify({ type: "set_model", modelId }));
   }, []);
 
+  const changeEffort = useCallback(
+    (effort: "off" | "low" | "medium" | "high" | "max") => {
+      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+      wsRef.current.send(JSON.stringify({ type: "set_effort", effort }));
+    },
+    [],
+  );
+
   const addInfoMessage = useCallback((text: string) => {
     setMessages((prev) => [
       ...prev,
@@ -470,6 +478,7 @@ export function useAgent(sessionId: string | null) {
     sendMessage,
     cancel,
     changeModel,
+    changeEffort,
     addInfoMessage,
   };
 }

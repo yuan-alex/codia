@@ -15,12 +15,15 @@ const DEFAULT_MODEL = "claude-sonnet-4-6";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
+export type EffortLevel = "off" | "low" | "medium" | "high" | "max";
+
 type Session = {
   id: string;
   claudeSessionId: string | null;
   title: string | null;
   createdAt: number;
   model: string;
+  effort: EffortLevel;
   activeProcess: ReturnType<typeof Bun.spawn> | null;
 };
 
@@ -179,6 +182,7 @@ export class StreamJsonBackend implements Backend {
       title: null,
       createdAt: Date.now(),
       model: DEFAULT_MODEL,
+      effort: "off",
       activeProcess: null,
     };
     this.sessions.set(session.id, session);
@@ -202,6 +206,7 @@ export class StreamJsonBackend implements Backend {
         title: title ?? null,
         createdAt: Date.now(),
         model: DEFAULT_MODEL,
+        effort: "off",
         activeProcess: null,
       };
       this.sessions.set(sessionId, session);
@@ -321,6 +326,9 @@ export class StreamJsonBackend implements Backend {
       "--model", session.model,
       "--dangerously-skip-permissions",
     ];
+    if (session.effort !== "off") {
+      args.push("--effort", session.effort);
+    }
     if (session.claudeSessionId) {
       args.push("--resume", session.claudeSessionId);
     }
@@ -475,6 +483,13 @@ export class StreamJsonBackend implements Backend {
     if (!session) throw new Error(`Session ${sessionId} not found`);
     session.model = modelId;
     return modelId;
+  }
+
+  async handleSetEffort(sessionId: string, effort: EffortLevel): Promise<EffortLevel> {
+    const session = this.sessions.get(sessionId);
+    if (!session) throw new Error(`Session ${sessionId} not found`);
+    session.effort = effort;
+    return effort;
   }
 
   async listSessions(): Promise<SessionListItem[]> {

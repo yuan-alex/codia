@@ -39,6 +39,11 @@ export interface Backend {
     modelId: string,
   ): Promise<string>;
 
+  handleSetEffort?(
+    sessionId: string,
+    effort: "off" | "low" | "medium" | "high" | "max",
+  ): Promise<"off" | "low" | "medium" | "high" | "max">;
+
   listSessions(): Promise<SessionListItem[]>;
 }
 
