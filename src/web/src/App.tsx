@@ -4,7 +4,6 @@ import { ChatInner, type ChatDebugInfo } from "./components/chat-inner";
 import { DebugPanel } from "./components/debug-panel";
 import { AppSidebar } from "./components/app-sidebar";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
-import { Separator } from "@/components/ui/separator";
 import type { BackendType } from "./hooks/use-agent";
 
 function useTheme() {
@@ -87,12 +86,8 @@ export default function App() {
         onToggleTheme={toggleTheme}
       />
       <SidebarInset className="overflow-hidden">
-        <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+        <header className="flex h-11 shrink-0 items-center gap-2 px-3">
           <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 h-4" />
-          <span className="text-sm text-muted-foreground">
-            {activeSessionId ? "Chat" : "New Chat"}
-          </span>
         </header>
         <div className="flex-1 min-h-0">
           <ChatInner

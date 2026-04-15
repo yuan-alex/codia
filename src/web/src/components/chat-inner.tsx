@@ -1,13 +1,8 @@
 import { memo, useState, useEffect, useMemo, useRef } from "react";
 import {
   SparklesIcon,
-  FileSearchIcon,
-  BugIcon,
   GitBranchIcon,
-  TestTube2Icon,
   FolderIcon,
-  CornerDownLeftIcon,
-  CommandIcon,
   CheckIcon,
   ChevronsUpDownIcon,
   LoaderIcon,
@@ -19,6 +14,8 @@ import {
   type AgentMessage,
   type BackendType,
 } from "@/hooks/use-agent";
+import { useSlashCommands } from "@/hooks/use-slash-commands";
+import { SlashCommandMenu } from "@/components/slash-command-menu";
 
 import {
   Conversation,
@@ -98,31 +95,23 @@ type Workspace = {
   branch: string | null;
 };
 
-const SUGGESTIONS: {
-  icon: typeof FileSearchIcon;
-  title: string;
-  prompt: string;
-}[] = [
+const SUGGESTIONS = [
   {
-    icon: FileSearchIcon,
     title: "Explore the codebase",
     prompt:
       "Give me a tour of this repository — the main entry points, the architecture, and what each top-level directory is responsible for.",
   },
   {
-    icon: BugIcon,
     title: "Hunt down a bug",
     prompt:
       "I'm seeing an unexpected behavior in this project. Help me trace it — ask me for details and then investigate the relevant files.",
   },
   {
-    icon: GitBranchIcon,
     title: "Refactor a module",
     prompt:
       "Look for duplication or tangled logic I should clean up, then propose a refactor with concrete diffs.",
   },
   {
-    icon: TestTube2Icon,
     title: "Write tests",
     prompt:
       "Find the most valuable untested code paths in this repo and write tests for them.",
@@ -144,49 +133,20 @@ function EmptyState({
   }, []);
 
   return (
-    <div className="flex flex-col items-center justify-center gap-8 px-6 pb-12 w-full max-w-2xl mx-auto">
-      {/* Brand mark */}
-      <div className="flex flex-col items-center gap-5">
-        <div className="relative flex items-center justify-center">
-          <div className="absolute size-24 rounded-full bg-[#d97757]/10 blur-2xl" />
-          <div className="absolute size-16 rounded-full bg-[#d97757]/15 blur-xl" />
-          <div className="relative size-14 rounded-2xl border border-[#d97757]/30 bg-gradient-to-br from-[#d97757]/20 to-[#d97757]/5 flex items-center justify-center shadow-lg shadow-[#d97757]/10">
-            <SparklesIcon
-              className="size-6 text-[#d97757]"
-              strokeWidth={1.75}
-            />
-          </div>
-        </div>
-
-        <div className="flex flex-col items-center gap-2.5">
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-[#d97757]/30 bg-[#d97757]/5 px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-[#d97757] font-semibold">
-            <span className="size-1 rounded-full bg-[#d97757] animate-pulse" />
-            <span>Powered by Claude Code</span>
-          </div>
-          <h2 className="text-3xl font-semibold tracking-tight">
-            What shall we build?
-          </h2>
-          <p className="text-muted-foreground text-sm max-w-md text-center">
-            I can read files, run commands, edit code, and ship changes — just
-            tell me what you need.
-          </p>
-        </div>
-
-        {/* Workspace chip */}
+    <div className="flex flex-col items-center justify-center gap-10 px-6 pb-16 w-full max-w-2xl mx-auto select-none">
+      {/* Greeting */}
+      <div className="flex flex-col items-center gap-4">
+        <h2 className="text-2xl font-medium tracking-tight text-foreground/90">
+          What can I help you build?
+        </h2>
         {workspace && (
-          <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-card/50 px-3 py-1.5 font-mono text-[11px] text-muted-foreground shadow-sm">
-            <FolderIcon
-              className="size-3.5 text-[#d97757]"
-              strokeWidth={1.75}
-            />
-            <span className="text-foreground/80">{workspace.displayPath}</span>
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
+            <FolderIcon className="size-3" strokeWidth={1.5} />
+            <span>{workspace.displayPath}</span>
             {workspace.branch && (
               <>
-                <span className="text-border">│</span>
-                <GitBranchIcon
-                  className="size-3 text-muted-foreground"
-                  strokeWidth={1.75}
-                />
+                <span className="mx-0.5 text-border">/</span>
+                <GitBranchIcon className="size-3" strokeWidth={1.5} />
                 <span>{workspace.branch}</span>
               </>
             )}
@@ -194,48 +154,18 @@ function EmptyState({
         )}
       </div>
 
-      {/* Suggestion cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-xl">
-        {SUGGESTIONS.map(({ icon: Icon, title, prompt }) => (
+      {/* Suggestion pills */}
+      <div className="flex flex-wrap items-center justify-center gap-2 max-w-lg">
+        {SUGGESTIONS.map(({ title, prompt }) => (
           <button
             key={title}
             type="button"
             onClick={() => onSuggestion(prompt)}
-            className="group relative flex items-start gap-3 overflow-hidden rounded-xl border border-border/60 bg-card/40 px-4 py-3.5 text-left transition-all hover:border-[#d97757]/40 hover:bg-card hover:shadow-sm"
+            className="rounded-full border border-border/70 bg-card/50 px-4 py-2 text-sm text-muted-foreground transition-all duration-200 hover:border-[#da7756]/50 hover:text-foreground hover:bg-[#da7756]/5 hover:shadow-sm hover:shadow-[#da7756]/10 hover:-translate-y-px active:translate-y-0 active:shadow-none"
           >
-            <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-background/80 text-muted-foreground transition-colors group-hover:border-[#d97757]/40 group-hover:text-[#d97757]">
-              <Icon className="size-3.5" strokeWidth={1.75} />
-            </div>
-            <div className="flex flex-col gap-0.5 min-w-0">
-              <span className="text-sm font-medium text-foreground leading-tight">
-                {title}
-              </span>
-              <span className="text-xs text-muted-foreground line-clamp-2 leading-snug">
-                {prompt}
-              </span>
-            </div>
+            {title}
           </button>
         ))}
-      </div>
-
-      {/* Keyboard hint */}
-      <div className="flex items-center gap-3 text-[11px] text-muted-foreground/70">
-        <span className="inline-flex items-center gap-1">
-          <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded border border-border/80 bg-card px-1 font-mono text-[10px]">
-            <CornerDownLeftIcon className="size-2.5" strokeWidth={2} />
-          </kbd>
-          <span>send</span>
-        </span>
-        <span className="text-border">·</span>
-        <span className="inline-flex items-center gap-1">
-          <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded border border-border/80 bg-card px-1 font-mono text-[10px]">
-            <CommandIcon className="size-2.5" strokeWidth={2} />
-          </kbd>
-          <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded border border-border/80 bg-card px-1 font-mono text-[10px]">
-            K
-          </kbd>
-          <span>new chat</span>
-        </span>
       </div>
     </div>
   );
@@ -430,6 +360,13 @@ export function ChatInner({
   const handleSuggestion = (text: string) => setInput(text);
   const prevStatusRef = useRef(agent.status);
 
+  const slashCommands = useSlashCommands(input, {
+    changeModel: agent.changeModel,
+    setInput,
+    addInfoMessage: agent.addInfoMessage,
+    models: agent.models,
+  });
+
   // Notify parent when session is resolved
   useEffect(() => {
     if (agent.sessionId && agent.sessionId !== sessionId) {
@@ -480,6 +417,8 @@ export function ChatInner({
 
   const handleSubmit = (message: PromptInputMessage) => {
     if (!message.text.trim()) return;
+    // Try executing as a slash command first
+    if (slashCommands.executeFromInput(message.text)) return;
     agent.sendMessage(message.text);
     setInput("");
   };
@@ -536,79 +475,86 @@ export function ChatInner({
         </Conversation>
       )}
 
-      <PromptInput
-        onSubmit={handleSubmit}
-        className="w-full max-w-4xl mx-auto px-4 pb-4"
+      <SlashCommandMenu
+        isOpen={slashCommands.isOpen}
+        commands={slashCommands.commands}
+        onSelect={slashCommands.selectCommand}
       >
-        <PromptInputBody>
-          <PromptInputTextarea
-            value={input}
-            placeholder={
-              isLoading
-                ? "Loading conversation..."
-                : isReady
-                  ? "Message Codia..."
-                  : "Thinking..."
-            }
-            onChange={(e) => setInput(e.currentTarget.value)}
-            disabled={!isReady}
-          />
-        </PromptInputBody>
-        <PromptInputFooter>
-          <PromptInputTools>
-            {agent.models.length > 0 && (
-              <ModelSelector>
-                <ModelSelectorTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 gap-1.5 rounded-lg px-2.5 text-xs"
-                    disabled={isStreaming}
-                  >
-                    <ModelSelectorLogo
-                      provider={getProvider(agent.selectedModel)}
-                      className="size-3.5"
-                    />
-                    <span className="truncate max-w-32">
-                      {agent.models.find((m) => m.modelId === agent.selectedModel)?.name ?? agent.selectedModel}
-                    </span>
-                    <ChevronsUpDownIcon className="size-3 text-muted-foreground" />
-                  </Button>
-                </ModelSelectorTrigger>
-                <ModelSelectorContent>
-                  <ModelSelectorInput placeholder="Search models..." />
-                  <ModelSelectorList>
-                    <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
-                    <ModelSelectorGroup heading="Models">
-                      {agent.models.map((m) => (
-                        <ModelSelectorItem
-                          key={m.modelId}
-                          value={m.modelId}
-                          onSelect={() => agent.changeModel(m.modelId)}
-                          className="flex items-center gap-2"
-                        >
-                          <ModelSelectorLogo
-                            provider={getProvider(m.modelId)}
-                            className="size-4"
-                          />
-                          <ModelSelectorName>{m.name}</ModelSelectorName>
-                          {m.modelId === agent.selectedModel && (
-                            <CheckIcon className="size-3.5 text-primary" />
-                          )}
-                        </ModelSelectorItem>
-                      ))}
-                    </ModelSelectorGroup>
-                  </ModelSelectorList>
-                </ModelSelectorContent>
-              </ModelSelector>
-            )}
-          </PromptInputTools>
-          <PromptInputSubmit
-            status={isStreaming ? "streaming" : "ready"}
-            disabled={!input.trim() || !isReady}
-          />
-        </PromptInputFooter>
-      </PromptInput>
+        <PromptInput
+          onSubmit={handleSubmit}
+          className="w-full max-w-4xl mx-auto px-4 pb-4"
+        >
+          <PromptInputBody>
+            <PromptInputTextarea
+              value={input}
+              placeholder={
+                isLoading
+                  ? "Loading conversation..."
+                  : isReady
+                    ? "Message Codia..."
+                    : "Thinking..."
+              }
+              onChange={(e) => setInput(e.currentTarget.value)}
+              onKeyDown={slashCommands.handleKeyDown}
+              disabled={!isReady}
+            />
+          </PromptInputBody>
+          <PromptInputFooter>
+            <PromptInputTools>
+              {agent.models.length > 0 && (
+                <ModelSelector>
+                  <ModelSelectorTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-1.5 rounded-lg px-2.5 text-xs"
+                      disabled={isStreaming}
+                    >
+                      <ModelSelectorLogo
+                        provider={getProvider(agent.selectedModel)}
+                        className="size-3.5"
+                      />
+                      <span className="truncate max-w-32">
+                        {agent.models.find((m) => m.modelId === agent.selectedModel)?.name ?? agent.selectedModel}
+                      </span>
+                      <ChevronsUpDownIcon className="size-3 text-muted-foreground" />
+                    </Button>
+                  </ModelSelectorTrigger>
+                  <ModelSelectorContent>
+                    <ModelSelectorInput placeholder="Search models..." />
+                    <ModelSelectorList>
+                      <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
+                      <ModelSelectorGroup heading="Models">
+                        {agent.models.map((m) => (
+                          <ModelSelectorItem
+                            key={m.modelId}
+                            value={m.modelId}
+                            onSelect={() => agent.changeModel(m.modelId)}
+                            className="flex items-center gap-2"
+                          >
+                            <ModelSelectorLogo
+                              provider={getProvider(m.modelId)}
+                              className="size-4"
+                            />
+                            <ModelSelectorName>{m.name}</ModelSelectorName>
+                            {m.modelId === agent.selectedModel && (
+                              <CheckIcon className="size-3.5 text-primary" />
+                            )}
+                          </ModelSelectorItem>
+                        ))}
+                      </ModelSelectorGroup>
+                    </ModelSelectorList>
+                  </ModelSelectorContent>
+                </ModelSelector>
+              )}
+            </PromptInputTools>
+            <PromptInputSubmit
+              status={isStreaming ? "streaming" : "ready"}
+              disabled={!input.trim() || !isReady}
+            />
+          </PromptInputFooter>
+        </PromptInput>
+      </SlashCommandMenu>
     </div>
   );
 }

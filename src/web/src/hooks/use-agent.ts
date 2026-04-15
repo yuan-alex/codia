@@ -20,6 +20,7 @@ export type ToolKind =
   | "execute"
   | "think"
   | "fetch"
+  | "agent"
   | "other";
 
 export type ToolCallStatus =
@@ -448,6 +449,17 @@ export function useAgent(sessionId: string | null, backend: BackendType = "acp")
     wsRef.current.send(JSON.stringify({ type: "set_model", modelId }));
   }, []);
 
+  const addInfoMessage = useCallback((text: string) => {
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        role: "assistant" as const,
+        parts: [{ type: "text" as const, text }],
+      },
+    ]);
+  }, []);
+
   return {
     messages: allMessages,
     rawMessages,
@@ -460,5 +472,6 @@ export function useAgent(sessionId: string | null, backend: BackendType = "acp")
     sendMessage,
     cancel,
     changeModel,
+    addInfoMessage,
   };
 }

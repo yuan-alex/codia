@@ -32,7 +32,7 @@ type PromptState = {
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
-function mapToolKind(name: string): "read" | "edit" | "search" | "execute" | "other" {
+function mapToolKind(name: string): "read" | "edit" | "search" | "execute" | "agent" | "other" {
   switch (name) {
     case "Read":
       return "read";
@@ -46,6 +46,8 @@ function mapToolKind(name: string): "read" | "edit" | "search" | "execute" | "ot
       return "edit";
     case "Bash":
       return "execute";
+    case "Agent":
+      return "agent";
     default:
       return "other";
   }
@@ -61,6 +63,7 @@ function formatToolTitle(name: string, input: Record<string, unknown>): string {
     case "Grep": return `Grep "${input.pattern ?? ""}"`;
     case "WebFetch": return `Fetch ${input.url ?? ""}`;
     case "WebSearch": return `Search "${input.query ?? ""}"`;
+    case "Agent": return `Agent: ${String(input.description ?? "").slice(0, 60)}`;
     default: return name;
   }
 }
@@ -184,27 +187,31 @@ export class StreamJsonBackend implements Backend {
 
   async handleLoadSession(ws: ServerWebSocket<any>, sessionId: string): Promise<SessionResult> {
     let session = this.sessions.get(sessionId);
-    if (!session) {
-      // Check if it's an on-disk Claude Code session we can resume
-      const filePath = join(getSessionsDir(), `${sessionId}.jsonl`);
-      const file = Bun.file(filePath);
-      if (await file.exists()) {
-        session = {
-          id: sessionId,
-          claudeSessionId: sessionId, // resume from this on-disk session
-          title: null,
-          createdAt: Date.now(),
-          model: DEFAULT_MODEL,
-          activeProcess: null,
-        };
-        this.sessions.set(sessionId, session);
 
-        // Replay conversation history to the UI
-        this.replayHistory(ws, filePath);
-      } else {
-        throw new Error(`Session ${sessionId} not found`);
-      }
+    const filePath = join(getSessionsDir(), `${sessionId}.jsonl`);
+    const file = Bun.file(filePath);
+    const fileExists = await file.exists();
+
+    if (!session) {
+      if (!fileExists) throw new Error(`Session ${sessionId} not found`);
+
+      const title = await extractTitle(filePath).catch(() => null);
+      session = {
+        id: sessionId,
+        claudeSessionId: sessionId, // resume from this on-disk session
+        title: title ?? null,
+        createdAt: Date.now(),
+        model: DEFAULT_MODEL,
+        activeProcess: null,
+      };
+      this.sessions.set(sessionId, session);
     }
+
+    // Always replay from disk so the UI gets the full history
+    if (fileExists) {
+      this.replayHistory(ws, filePath);
+    }
+
     return { sessionId, models: MODELS, currentModelId: session.model };
   }
 
@@ -472,12 +479,22 @@ export class StreamJsonBackend implements Backend {
 
   async listSessions(): Promise<SessionListItem[]> {
     const inMemoryIds = new Set(this.sessions.keys());
-    const inMemory: SessionListItem[] = Array.from(this.sessions.values())
-      .sort((a, b) => b.createdAt - a.createdAt)
-      .map((s) => ({ sessionId: s.id, title: s.title ?? undefined }));
+    const dir = getSessionsDir();
+
+    // Build in-memory entries with lastUpdated from disk stat
+    const inMemory: SessionListItem[] = await Promise.all(
+      Array.from(this.sessions.values()).map(async (s) => {
+        const filePath = join(dir, `${s.id}.jsonl`);
+        const fileStat = await stat(filePath).catch(() => null);
+        return {
+          sessionId: s.id,
+          title: s.title ?? undefined,
+          lastUpdated: fileStat?.mtime.toISOString(),
+        } as SessionListItem;
+      }),
+    );
 
     // Scan on-disk Claude Code sessions for this project
-    const dir = getSessionsDir();
     let diskSessions: SessionListItem[] = [];
     try {
       const entries = await readdir(dir);
@@ -504,13 +521,14 @@ export class StreamJsonBackend implements Backend {
       );
 
       diskSessions = results.filter((r): r is SessionListItem => r !== null);
-      diskSessions.sort((a, b) =>
-        (b.lastUpdated ?? "").localeCompare(a.lastUpdated ?? ""),
-      );
     } catch {
       // Directory may not exist yet — that's fine
     }
 
-    return [...inMemory, ...diskSessions];
+    const all = [...inMemory, ...diskSessions];
+    all.sort((a, b) =>
+      (b.lastUpdated ?? "").localeCompare(a.lastUpdated ?? ""),
+    );
+    return all.slice(0, 50);
   }
 }

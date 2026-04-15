@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  SparklesIcon,
   Plus,
   MessageSquare,
   SunIcon,
@@ -74,13 +73,7 @@ export function AppSidebar({
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton className="w-fit px-1.5">
-              <div className="flex aspect-square size-5 items-center justify-center rounded-md border border-[#d97757]/30 bg-gradient-to-br from-[#d97757]/20 to-[#d97757]/5">
-                <SparklesIcon className="size-3 text-[#d97757]" strokeWidth={2} />
-              </div>
-              <span className="truncate font-medium">Codia</span>
-              <span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-medium">
-                {backend === "acp" ? "Claude Code" : "Codia Agent"}
-              </span>
+              <span className="text-xl font-medium">Codia</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

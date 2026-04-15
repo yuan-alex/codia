@@ -21,6 +21,7 @@ import {
   TrashIcon,
   ArrowRightIcon,
   WrenchIcon,
+  BotIcon,
 } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
@@ -39,6 +40,7 @@ const kindIcons: Record<ToolKind, ReactNode> = {
   execute: <TerminalIcon className="size-4 text-green-500" />,
   think: <BrainIcon className="size-4 text-violet-500" />,
   fetch: <GlobeIcon className="size-4 text-orange-500" />,
+  agent: <BotIcon className="size-4 text-indigo-500" />,
   other: <WrenchIcon className="size-4 text-muted-foreground" />,
 };
 
@@ -478,6 +480,62 @@ function ThinkToolDisplay({ part }: { part: ToolPart }) {
   );
 }
 
+function AgentToolDisplay({ part }: { part: ToolPart }) {
+  const [expanded, setExpanded] = useState(false);
+  const description = (part.input.description as string) ?? "";
+  const prompt = (part.input.prompt as string) ?? "";
+  const subagentType = (part.input.subagent_type as string) ?? "";
+  const textContent = extractText(part.content);
+  const isDone = part.state === "completed";
+  const isFailed = part.state === "failed";
+
+  return (
+    <ToolShell part={part}>
+      {description && (
+        <p className="text-sm text-foreground">{description}</p>
+      )}
+      {subagentType && (
+        <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-2 py-0.5 text-[10px] font-medium text-indigo-500 w-fit">
+          {subagentType}
+        </span>
+      )}
+      {prompt && (
+        <button
+          type="button"
+          onClick={() => setExpanded((e) => !e)}
+          className="text-left w-full"
+        >
+          <pre className={cn(
+            "whitespace-pre-wrap break-words text-xs text-muted-foreground font-mono p-3 overflow-auto rounded-md border bg-muted/30",
+            !expanded && "max-h-16",
+          )}>
+            {prompt}
+          </pre>
+          {!expanded && prompt.split("\n").length > 3 && (
+            <span className="text-xs text-muted-foreground/60 mt-1 block">
+              Click to expand prompt
+            </span>
+          )}
+        </button>
+      )}
+      {(isDone || isFailed) && textContent && (
+        <div className={cn(
+          "rounded-md border overflow-hidden",
+          isFailed && "border-destructive/30",
+        )}>
+          <div className={cn(
+            "px-3 py-1.5 text-xs font-medium border-b",
+            isFailed ? "bg-destructive/10 text-destructive" : "bg-muted/80 text-muted-foreground",
+          )}>
+            {isFailed ? "Error" : "Result"}
+          </div>
+          <TextContent text={textContent} />
+        </div>
+      )}
+    </ToolShell>
+  );
+}
+
 function FallbackToolDisplay({ part }: { part: ToolPart }) {
   const textContent = extractText(part.content);
 
@@ -505,7 +563,7 @@ function ToolShell({
   return (
     <div
       className={cn(
-        "mb-3 w-full rounded-lg border bg-card text-card-foreground overflow-hidden",
+        "w-full rounded-lg border bg-card text-card-foreground overflow-hidden",
         isRunning && "border-blue-500/30",
       )}
     >
@@ -569,6 +627,7 @@ const kindRenderers: Record<
   execute: ExecuteToolDisplay,
   think: ThinkToolDisplay,
   fetch: FallbackToolDisplay,
+  agent: AgentToolDisplay,
   other: FallbackToolDisplay,
 };
 
