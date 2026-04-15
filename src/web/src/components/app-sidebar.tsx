@@ -1,10 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  Plus,
-  MessageSquare,
-  SunIcon,
-  MoonIcon,
-} from "lucide-react";
+import { Plus, MessageSquare, SunIcon, MoonIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sidebar,
@@ -108,7 +103,10 @@ export function AppSidebar({
         <SidebarSeparator />
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={onToggleTheme} tooltip={isDark ? "Light mode" : "Dark mode"}>
+            <SidebarMenuButton
+              onClick={onToggleTheme}
+              tooltip={isDark ? "Light mode" : "Dark mode"}
+            >
               {isDark ? <SunIcon /> : <MoonIcon />}
               <span>{isDark ? "Light mode" : "Dark mode"}</span>
             </SidebarMenuButton>

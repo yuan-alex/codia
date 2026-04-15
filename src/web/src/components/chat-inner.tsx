@@ -9,10 +9,7 @@ import {
   CheckCircle2Icon,
   CircleXIcon,
 } from "lucide-react";
-import {
-  useAgent,
-  type AgentMessage,
-} from "@/hooks/use-agent";
+import { useAgent, type AgentMessage } from "@/hooks/use-agent";
 import { useSlashCommands } from "@/hooks/use-slash-commands";
 import { SlashCommandMenu } from "@/components/slash-command-menu";
 
@@ -54,7 +51,13 @@ import { ToolDisplay } from "@/components/ai-elements/tool-renderers";
 function getProvider(modelId: string): string {
   if (modelId.includes(":")) return modelId.split(":")[0];
   if (modelId.startsWith("claude")) return "anthropic";
-  if (modelId.startsWith("gpt") || modelId.startsWith("o1") || modelId.startsWith("o3") || modelId.startsWith("o4")) return "openai";
+  if (
+    modelId.startsWith("gpt") ||
+    modelId.startsWith("o1") ||
+    modelId.startsWith("o3") ||
+    modelId.startsWith("o4")
+  )
+    return "openai";
   if (modelId.startsWith("gemini")) return "google";
   if (modelId.startsWith("mistral")) return "mistral";
   if (modelId.startsWith("deepseek")) return "deepseek";
@@ -80,11 +83,7 @@ import {
   ReasoningContent,
   ReasoningTrigger,
 } from "@/components/ai-elements/reasoning";
-import {
-  Task,
-  TaskTrigger,
-  TaskContent,
-} from "@/components/ai-elements/task";
+import { Task, TaskTrigger, TaskContent } from "@/components/ai-elements/task";
 import { Spinner } from "@/components/ui/spinner";
 
 type Workspace = {
@@ -199,7 +198,11 @@ function groupParts(parts: AgentMessage["parts"]): Segment[] {
   return segments;
 }
 
-const ToolGroupSummary = memo(function ToolGroupSummary({ tools }: { tools: ToolPartProp[] }) {
+const ToolGroupSummary = memo(function ToolGroupSummary({
+  tools,
+}: {
+  tools: ToolPartProp[];
+}) {
   const completed = tools.filter((t) => t.state === "completed").length;
   const failed = tools.filter((t) => t.state === "failed").length;
   const active = tools.some(
@@ -312,9 +315,13 @@ const MessageParts = memo(function MessageParts({
           ));
         }
         // Tool group
-        const hasActive = isLastMessage && isStreaming && segment.parts.some(
-          ({ part }) => part.state === "pending" || part.state === "in_progress",
-        );
+        const hasActive =
+          isLastMessage &&
+          isStreaming &&
+          segment.parts.some(
+            ({ part }) =>
+              part.state === "pending" || part.state === "in_progress",
+          );
         return (
           <ToolGroup
             key={`${message.id}-toolgroup-${si}`}
@@ -512,7 +519,9 @@ export function ChatInner({
                         className="size-3.5"
                       />
                       <span className="truncate max-w-32">
-                        {agent.models.find((m) => m.modelId === agent.selectedModel)?.name ?? agent.selectedModel}
+                        {agent.models.find(
+                          (m) => m.modelId === agent.selectedModel,
+                        )?.name ?? agent.selectedModel}
                       </span>
                       <ChevronsUpDownIcon className="size-3 text-muted-foreground" />
                     </Button>
