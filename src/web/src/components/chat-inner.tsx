@@ -12,7 +12,6 @@ import {
 import {
   useAgent,
   type AgentMessage,
-  type BackendType,
 } from "@/hooks/use-agent";
 import { useSlashCommands } from "@/hooks/use-slash-commands";
 import { SlashCommandMenu } from "@/components/slash-command-menu";
@@ -344,19 +343,17 @@ export type ChatDebugInfo = {
 
 export function ChatInner({
   sessionId,
-  backend = "acp",
   onSessionReady,
   onPromptDone,
   onDebugInfo,
 }: {
   sessionId: string | null;
-  backend?: BackendType;
   onSessionReady?: (id: string) => void;
   onPromptDone?: () => void;
   onDebugInfo?: (info: ChatDebugInfo) => void;
 }) {
   const [input, setInput] = useState("");
-  const agent = useAgent(sessionId, backend);
+  const agent = useAgent(sessionId);
   const handleSuggestion = (text: string) => setInput(text);
   const prevStatusRef = useRef(agent.status);
 
@@ -491,7 +488,7 @@ export function ChatInner({
                 isLoading
                   ? "Loading conversation..."
                   : isReady
-                    ? "Message Codia..."
+                    ? "Message Claude..."
                     : "Thinking..."
               }
               onChange={(e) => setInput(e.currentTarget.value)}

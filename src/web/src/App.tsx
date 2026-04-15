@@ -4,7 +4,6 @@ import { ChatInner, type ChatDebugInfo } from "./components/chat-inner";
 import { DebugPanel } from "./components/debug-panel";
 import { AppSidebar } from "./components/app-sidebar";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
-import type { BackendType } from "./hooks/use-agent";
 
 function useTheme() {
   const [isDark, setIsDark] = useState(() => {
@@ -47,7 +46,6 @@ export default function App() {
     getSessionIdFromUrl,
   );
   const [newSessionKey, setNewSessionKey] = useState(0);
-  const [backend, setBackend] = useState<BackendType>("acp");
   const [chatDebug, setChatDebug] = useState<ChatDebugInfo | null>(null);
 
   const startNewSession = () => {
@@ -69,20 +67,13 @@ export default function App() {
     [],
   );
 
-  const handleToggleBackend = () => {
-    setBackend((b) => (b === "acp" ? "codia" : "acp"));
-    startNewSession();
-  };
-
   return (
     <SidebarProvider className="h-svh !min-h-0">
       <AppSidebar
         activeSessionId={activeSessionId}
-        backend={backend}
         isDark={isDark}
         onNewSession={startNewSession}
         onSelectSession={selectSession}
-        onToggleBackend={handleToggleBackend}
         onToggleTheme={toggleTheme}
       />
       <SidebarInset className="overflow-hidden">
@@ -91,9 +82,8 @@ export default function App() {
         </header>
         <div className="flex-1 min-h-0">
           <ChatInner
-            key={activeSessionId ?? `new-${newSessionKey}-${backend}`}
+            key={activeSessionId ?? `new-${newSessionKey}`}
             sessionId={activeSessionId}
-            backend={backend}
             onSessionReady={handleSessionReady}
             onDebugInfo={import.meta.env.DEV ? setChatDebug : undefined}
           />

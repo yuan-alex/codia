@@ -1,9 +1,6 @@
-import { createAgentUIStreamResponse } from "ai";
 import { config } from "./config";
 import { StreamJsonBackend } from "./backends/stream-json-backend";
-import { CodiaBackend } from "./backends/codia-backend";
 import { sendJson, type Backend } from "./backends/types";
-import { agent } from "../agent";
 
 // ── Per-connection state ───────────────────────────────────────────────
 
@@ -11,15 +8,9 @@ type WsData = {
   sessionId: string | null;
 };
 
-// ── Backends ───────────────────────────────────────────────────────────
+// ── Backend ────────────────────────────────────────────────────────────
 
 const claudeBackend = new StreamJsonBackend();
-const codiaBackend = new CodiaBackend();
-
-const backends: Record<string, Backend> = {
-  acp: claudeBackend,
-  codia: codiaBackend,
-};
 
 // Map sessionId -> backend so subsequent messages route correctly
 const sessionBackendMap = new Map<string, Backend>();
@@ -45,19 +36,11 @@ Bun.serve<WsData>({
       return new Response("WebSocket upgrade failed", { status: 500 });
     }
 
-    // REST: list sessions (merge both backends)
+    // REST: list sessions
     if (req.method === "GET" && url.pathname === "/api/sessions") {
       try {
-        const [claudeSessions, codiaSessions] = await Promise.all([
-          claudeBackend.listSessions().catch(() => []),
-          codiaBackend.listSessions().catch(() => []),
-        ]);
-        return Response.json({
-          sessions: [
-            ...claudeSessions.map((s) => ({ ...s, backend: "acp" })),
-            ...codiaSessions.map((s) => ({ ...s, backend: "codia" })),
-          ],
-        });
+        const sessions = await claudeBackend.listSessions();
+        return Response.json({ sessions });
       } catch (error) {
         console.error("Failed to list sessions:", error);
         return Response.json({ error: String(error) }, { status: 500 });
@@ -85,15 +68,6 @@ Bun.serve<WsData>({
       return Response.json({ cwd, displayPath, basename, branch });
     }
 
-    // REST: AI SDK chat endpoint
-    if (req.method === "POST" && url.pathname === "/api/chat") {
-      const body = await req.json() as { messages?: unknown[] };
-      return createAgentUIStreamResponse({
-        agent,
-        uiMessages: body.messages ?? [],
-      });
-    }
-
     return new Response("Not found", { status: 404 });
   },
 
@@ -112,16 +86,10 @@ Bun.serve<WsData>({
       }
 
       if (msg.type === "session/new") {
-        const backendKey = msg.backend ?? "acp";
-        const backend = backends[backendKey];
-        if (!backend) {
-          sendError(ws, `Unknown backend: ${backendKey}`);
-          return;
-        }
         try {
-          const result = await backend.handleNewSession(ws);
+          const result = await claudeBackend.handleNewSession(ws);
           ws.data.sessionId = result.sessionId;
-          sessionBackendMap.set(result.sessionId, backend);
+          sessionBackendMap.set(result.sessionId, claudeBackend);
           sendJson(ws, {
             type: "session/ready",
             sessionId: result.sessionId,

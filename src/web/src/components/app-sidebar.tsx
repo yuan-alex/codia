@@ -4,8 +4,6 @@ import {
   MessageSquare,
   SunIcon,
   MoonIcon,
-  BotIcon,
-  CodeIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,7 +20,6 @@ import {
   SidebarRail,
   SidebarSeparator,
 } from "@/components/ui/sidebar";
-import type { BackendType } from "@/hooks/use-agent";
 
 type SessionListItem = {
   sessionId: string;
@@ -33,20 +30,16 @@ type SessionListItem = {
 
 export function AppSidebar({
   activeSessionId,
-  backend,
   isDark,
   onNewSession,
   onSelectSession,
-  onToggleBackend,
   onToggleTheme,
   ...props
 }: {
   activeSessionId: string | null;
-  backend: BackendType;
   isDark: boolean;
   onNewSession: () => void;
   onSelectSession: (id: string) => void;
-  onToggleBackend: () => void;
   onToggleTheme: () => void;
 } & React.ComponentProps<typeof Sidebar>) {
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
@@ -114,12 +107,6 @@ export function AppSidebar({
       <SidebarFooter>
         <SidebarSeparator />
         <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton onClick={onToggleBackend} tooltip={backend === "acp" ? "Switch to Codia Agent" : "Switch to Claude Code"}>
-              {backend === "acp" ? <BotIcon /> : <CodeIcon />}
-              <span>{backend === "acp" ? "Switch to Codia Agent" : "Switch to Claude Code"}</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton onClick={onToggleTheme} tooltip={isDark ? "Light mode" : "Dark mode"}>
               {isDark ? <SunIcon /> : <MoonIcon />}

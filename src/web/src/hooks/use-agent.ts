@@ -92,9 +92,7 @@ type SessionUpdate = {
 
 // ── Hook ────────────────────────────────────────────────────────────
 
-export type BackendType = "acp" | "codia";
-
-export function useAgent(sessionId: string | null, backend: BackendType = "acp") {
+export function useAgent(sessionId: string | null) {
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   // Separate state for the in-progress streaming message to avoid
   // re-creating the full messages array on every chunk
@@ -336,7 +334,7 @@ export function useAgent(sessionId: string | null, backend: BackendType = "acp")
         setStatus("loading");
         ws.send(JSON.stringify({ type: "session/load", sessionId }));
       } else {
-        ws.send(JSON.stringify({ type: "session/new", backend }));
+        ws.send(JSON.stringify({ type: "session/new" }));
       }
     };
 
@@ -373,7 +371,7 @@ export function useAgent(sessionId: string | null, backend: BackendType = "acp")
         setError(msg.message);
         // Use ref to avoid stale closure over status
         if ((statusRef.current === "connecting" || statusRef.current === "loading") && sessionId) {
-          ws.send(JSON.stringify({ type: "session/new", backend }));
+          ws.send(JSON.stringify({ type: "session/new" }));
           return;
         }
         setStatus("ready");
@@ -402,7 +400,7 @@ export function useAgent(sessionId: string | null, backend: BackendType = "acp")
         flushRafRef.current = null;
       }
     };
-  }, [sessionId, backend]);
+  }, [sessionId]);
 
   // Merge stable messages with the in-progress streaming message for consumers
   const allMessages = useMemo(
