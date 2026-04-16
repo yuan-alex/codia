@@ -1,14 +1,22 @@
 import type { ServerWebSocket } from "bun";
+import type { PermissionMode } from "./stream-json-backend";
 
 export type SessionResult = {
   sessionId: string;
   models: { modelId: string; name: string; description?: string }[];
   currentModelId: string | null;
+  currentPermissionMode?: PermissionMode;
+};
+
+export type PermissionDenial = {
+  toolName: string;
+  toolUseId: string;
 };
 
 export type PromptResult = {
   stopReason: string;
   usage?: { inputTokens: number; outputTokens: number };
+  permissionDenials?: PermissionDenial[];
 };
 
 export type SessionListItem = {
@@ -43,6 +51,11 @@ export interface Backend {
     sessionId: string,
     effort: "off" | "low" | "medium" | "high" | "max",
   ): Promise<"off" | "low" | "medium" | "high" | "max">;
+
+  handleSetPermissionMode?(
+    sessionId: string,
+    permissionMode: PermissionMode,
+  ): Promise<PermissionMode>;
 
   listSessions(): Promise<SessionListItem[]>;
 }

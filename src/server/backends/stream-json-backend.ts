@@ -16,6 +16,9 @@ const DEFAULT_MODEL = "claude-sonnet-4-6";
 // ── Types ─────────────────────────────────────────────────────────────
 
 export type EffortLevel = "off" | "low" | "medium" | "high" | "max";
+export type PermissionMode = "plan" | "default" | "acceptEdits" | "auto" | "dontAsk" | "bypassPermissions";
+
+const DEFAULT_PERMISSION_MODE: PermissionMode = "acceptEdits";
 
 type Session = {
   id: string;
@@ -24,6 +27,7 @@ type Session = {
   createdAt: number;
   model: string;
   effort: EffortLevel;
+  permissionMode: PermissionMode;
   activeProcess: ReturnType<typeof Bun.spawn> | null;
 };
 
@@ -183,10 +187,11 @@ export class StreamJsonBackend implements Backend {
       createdAt: Date.now(),
       model: DEFAULT_MODEL,
       effort: "off",
+      permissionMode: DEFAULT_PERMISSION_MODE,
       activeProcess: null,
     };
     this.sessions.set(session.id, session);
-    return { sessionId: session.id, models: MODELS, currentModelId: session.model };
+    return { sessionId: session.id, models: MODELS, currentModelId: session.model, currentPermissionMode: session.permissionMode };
   }
 
   async handleLoadSession(ws: ServerWebSocket<any>, sessionId: string): Promise<SessionResult> {
@@ -207,6 +212,7 @@ export class StreamJsonBackend implements Backend {
         createdAt: Date.now(),
         model: DEFAULT_MODEL,
         effort: "off",
+        permissionMode: DEFAULT_PERMISSION_MODE,
         activeProcess: null,
       };
       this.sessions.set(sessionId, session);
@@ -217,7 +223,7 @@ export class StreamJsonBackend implements Backend {
       this.replayHistory(ws, filePath);
     }
 
-    return { sessionId, models: MODELS, currentModelId: session.model };
+    return { sessionId, models: MODELS, currentModelId: session.model, currentPermissionMode: session.permissionMode };
   }
 
   /** Parse on-disk JSONL and send user/assistant text as replay updates. */
@@ -324,7 +330,7 @@ export class StreamJsonBackend implements Backend {
       "--output-format", "stream-json",
       "--verbose",
       "--model", session.model,
-      "--dangerously-skip-permissions",
+      "--permission-mode", session.permissionMode,
     ];
     if (session.effort !== "off") {
       args.push("--effort", session.effort);
@@ -449,10 +455,13 @@ export class StreamJsonBackend implements Backend {
         for (const block of (event.message?.content ?? [])) {
           if (block.type === "tool_result") {
             const resultContent = buildToolResultContent(event, block);
+            const isPermissionDenial =
+              block.is_error &&
+              extractToolResultText(block).includes("Claude requested permissions");
             sendUpdate(ws, {
               sessionUpdate: "tool_call_update",
               toolCallId: block.tool_use_id,
-              status: block.is_error ? "failed" : "completed",
+              status: isPermissionDenial ? "permission_denied" : block.is_error ? "failed" : "completed",
               content: resultContent,
             });
           }
@@ -467,6 +476,12 @@ export class StreamJsonBackend implements Backend {
             inputTokens: event.usage.input_tokens ?? 0,
             outputTokens: event.usage.output_tokens ?? 0,
           };
+        }
+        if (Array.isArray(event.permission_denials) && event.permission_denials.length > 0) {
+          state.result.permissionDenials = event.permission_denials.map((d: any) => ({
+            toolName: d.tool_name as string,
+            toolUseId: d.tool_use_id as string,
+          }));
         }
         break;
       }
@@ -490,6 +505,13 @@ export class StreamJsonBackend implements Backend {
     if (!session) throw new Error(`Session ${sessionId} not found`);
     session.effort = effort;
     return effort;
+  }
+
+  async handleSetPermissionMode(sessionId: string, permissionMode: PermissionMode): Promise<PermissionMode> {
+    const session = this.sessions.get(sessionId);
+    if (!session) throw new Error(`Session ${sessionId} not found`);
+    session.permissionMode = permissionMode;
+    return permissionMode;
   }
 
   async listSessions(): Promise<SessionListItem[]> {

@@ -95,6 +95,7 @@ Bun.serve<WsData>({
             sessionId: result.sessionId,
             models: result.models,
             currentModelId: result.currentModelId,
+            currentPermissionMode: result.currentPermissionMode,
           });
         } catch (error) {
           console.error("[ws] session/new error:", error);
@@ -114,6 +115,7 @@ Bun.serve<WsData>({
             sessionId: msg.sessionId,
             models: result.models,
             currentModelId: result.currentModelId,
+            currentPermissionMode: result.currentPermissionMode,
           });
         } catch (error) {
           console.error("[ws] session/load error:", error);
@@ -138,6 +140,7 @@ Bun.serve<WsData>({
             type: "prompt/done",
             stopReason: result.stopReason,
             usage: result.usage,
+            permissionDenials: result.permissionDenials,
           });
         } catch (error) {
           console.error("[ws] prompt error:", error);
@@ -181,6 +184,20 @@ Bun.serve<WsData>({
           sendJson(ws, { type: "effort/set", effort });
         } catch (error) {
           console.error("[ws] set_effort error:", error);
+          sendError(ws, error);
+        }
+      }
+
+      if (msg.type === "set_permission_mode") {
+        const sessionId = ws.data.sessionId;
+        if (!sessionId) return;
+        const backend = sessionBackendMap.get(sessionId);
+        if (!backend?.handleSetPermissionMode) return;
+        try {
+          const permissionMode = await backend.handleSetPermissionMode(sessionId, msg.permissionMode);
+          sendJson(ws, { type: "permission_mode/set", permissionMode });
+        } catch (error) {
+          console.error("[ws] set_permission_mode error:", error);
           sendError(ws, error);
         }
       }

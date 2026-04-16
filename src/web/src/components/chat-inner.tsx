@@ -9,6 +9,8 @@ import {
   CheckCircle2Icon,
   CircleXIcon,
   BrainIcon,
+  ShieldIcon,
+  AlertTriangleIcon,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -18,7 +20,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { useAgent, type AgentMessage } from "@/hooks/use-agent";
+import { useAgent, type AgentMessage, type PermissionMode } from "@/hooks/use-agent";
 import { useSlashCommands } from "@/hooks/use-slash-commands";
 import { SlashCommandMenu } from "@/components/slash-command-menu";
 
@@ -370,6 +372,19 @@ const EFFORT_LEVELS: {
   { id: "max", label: "Max" },
 ];
 
+const PERMISSION_MODES: {
+  id: PermissionMode;
+  label: string;
+  description: string;
+}[] = [
+  { id: "plan", label: "Plan", description: "Read-only — Claude can analyze but not modify files or run commands" },
+  { id: "default", label: "Default", description: "Prompts for permission on first use of each tool" },
+  { id: "acceptEdits", label: "Accept edits", description: "Auto-accepts file edits and common filesystem commands (mkdir, touch, mv, cp)" },
+  { id: "auto", label: "Auto", description: "Auto-approves tool calls with background safety checks (research preview)" },
+  { id: "dontAsk", label: "Don't ask", description: "Auto-denies tools unless pre-approved via allow rules" },
+  { id: "bypassPermissions", label: "Bypass all", description: "Skips permission prompts except for protected directories (.git, .claude, etc.)" },
+];
+
 export function ChatInner({
   sessionId,
   onSessionReady,
@@ -384,6 +399,8 @@ export function ChatInner({
   const [input, setInput] = useState("");
   const [effort, setEffort] = useState<EffortLevel>("medium");
   const agent = useAgent(sessionId);
+  const permissionMode = agent.permissionMode;
+  const activePermission = PERMISSION_MODES.find((m) => m.id === permissionMode) ?? PERMISSION_MODES[1];
 
   useEffect(() => {
     if (agent.status === "ready") agent.changeEffort(effort);
@@ -508,6 +525,20 @@ export function ChatInner({
         </Conversation>
       )}
 
+      {agent.permissionDenials.length > 0 && (
+        <div className="w-full max-w-4xl mx-auto px-4">
+          <div className="mb-2 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+            <AlertTriangleIcon className="size-3.5 mt-0.5 shrink-0" />
+            <span>
+              Claude was blocked from using{" "}
+              <span className="font-medium">
+                {[...new Set(agent.permissionDenials.map((d) => d.toolName))].join(", ")}
+              </span>
+              . Change the permission mode below and resend your message to retry.
+            </span>
+          </div>
+        </div>
+      )}
       <SlashCommandMenu
         isOpen={slashCommands.isOpen}
         commands={slashCommands.commands}
@@ -563,6 +594,42 @@ export function ChatInner({
                         }
                       />
                       <span className="text-sm">{m.label}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 rounded-lg px-2.5 text-xs"
+                    disabled={isStreaming}
+                  >
+                    <ShieldIcon className="size-3.5" />
+                    <span className="truncate">{activePermission.label}</span>
+                    <ChevronsUpDownIcon className="size-3 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-64">
+                  <DropdownMenuLabel>Permission mode</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {PERMISSION_MODES.map((m) => (
+                    <DropdownMenuItem
+                      key={m.id}
+                      onSelect={() => agent.changePermissionMode(m.id)}
+                      className="flex items-start gap-2"
+                    >
+                      <CheckIcon
+                        className={
+                          "size-3.5 mt-0.5 shrink-0 " +
+                          (m.id === permissionMode ? "text-primary" : "opacity-0")
+                        }
+                      />
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">{m.label}</span>
+                        <span className="text-xs text-muted-foreground">{m.description}</span>
+                      </div>
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>

@@ -66,6 +66,13 @@ export type ModelInfo = {
   description?: string;
 };
 
+export type PermissionMode = "plan" | "default" | "acceptEdits" | "auto" | "dontAsk" | "bypassPermissions";
+
+export type PermissionDenial = {
+  toolName: string;
+  toolUseId: string;
+};
+
 type Status = "connecting" | "loading" | "ready" | "streaming" | "error";
 
 type ServerMessage =
@@ -74,6 +81,7 @@ type ServerMessage =
       sessionId: string;
       models: ModelInfo[];
       currentModelId: string | null;
+      currentPermissionMode?: PermissionMode;
     }
   | { type: "update"; update: SessionUpdate }
   | { type: "debug"; event: unknown }
@@ -81,8 +89,10 @@ type ServerMessage =
       type: "prompt/done";
       stopReason: string;
       usage?: { inputTokens: number; outputTokens: number };
+      permissionDenials?: PermissionDenial[];
     }
   | { type: "model/set"; modelId: string }
+  | { type: "permission_mode/set"; permissionMode: PermissionMode }
   | { type: "error"; message: string };
 
 type SessionUpdate = {
@@ -102,6 +112,8 @@ export function useAgent(sessionId: string | null) {
   const [status, setStatus] = useState<Status>("connecting");
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [selectedModel, setSelectedModel] = useState<string>("");
+  const [permissionMode, setPermissionMode] = useState<PermissionMode>("acceptEdits");
+  const [permissionDenials, setPermissionDenials] = useState<PermissionDenial[]>([]);
   const [resolvedSessionId, setResolvedSessionId] = useState<string | null>(
     null,
   );
@@ -346,6 +358,7 @@ export function useAgent(sessionId: string | null) {
         setResolvedSessionId(msg.sessionId);
         setModels(msg.models);
         setSelectedModel(msg.currentModelId ?? msg.models[0]?.modelId ?? "");
+        if (msg.currentPermissionMode) setPermissionMode(msg.currentPermissionMode);
         setStatus("ready");
         // Finalize any replayed assistant message from session/load
         if (currentAssistantRef.current) {
@@ -364,6 +377,9 @@ export function useAgent(sessionId: string | null) {
       if (msg.type === "prompt/done") {
         finalizeAssistant();
         setStatus("ready");
+        if (msg.permissionDenials?.length) {
+          setPermissionDenials(msg.permissionDenials);
+        }
       }
 
       if (msg.type === "error") {
@@ -379,6 +395,10 @@ export function useAgent(sessionId: string | null) {
 
       if (msg.type === "model/set") {
         setSelectedModel(msg.modelId);
+      }
+
+      if (msg.type === "permission_mode/set") {
+        setPermissionMode(msg.permissionMode);
       }
     };
 
@@ -422,6 +442,9 @@ export function useAgent(sessionId: string | null) {
   const sendMessage = useCallback((text: string) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
 
+    // Clear any previous permission denials
+    setPermissionDenials([]);
+
     // Add user message to state immediately
     setMessages((prev) => [
       ...prev,
@@ -455,6 +478,12 @@ export function useAgent(sessionId: string | null) {
     [],
   );
 
+  const changePermissionMode = useCallback((mode: PermissionMode) => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    setPermissionMode(mode);
+    wsRef.current.send(JSON.stringify({ type: "set_permission_mode", permissionMode: mode }));
+  }, []);
+
   const addInfoMessage = useCallback((text: string) => {
     setMessages((prev) => [
       ...prev,
@@ -473,12 +502,15 @@ export function useAgent(sessionId: string | null) {
     status,
     models,
     selectedModel,
+    permissionMode,
+    permissionDenials,
     sessionId: resolvedSessionId,
     error,
     sendMessage,
     cancel,
     changeModel,
     changeEffort,
+    changePermissionMode,
     addInfoMessage,
   };
 }
