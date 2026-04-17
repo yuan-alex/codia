@@ -1,24 +1,47 @@
-import { join } from "node:path";
+import { readFileSync } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
+import { join } from "node:path";
 import type { ServerWebSocket } from "bun";
-import { sendJson, sendUpdate, type Backend, type SessionResult, type PromptResult, type SessionListItem } from "./types";
+import {
+  type Backend,
+  type PromptResult,
+  type SessionListItem,
+  type SessionResult,
+  sendJson,
+  sendUpdate,
+} from "./types";
 
 // ── Constants ─────────────────────────────────────────────────────────
 
 const MODELS = [
   { modelId: "claude-sonnet-4-6", name: "Claude Sonnet 4.6" },
-  { modelId: "claude-opus-4-6", name: "Claude Opus 4.6" },
+  { modelId: "claude-opus-4-7", name: "Claude Opus 4.7" },
   { modelId: "claude-haiku-4-5-20251001", name: "Claude Haiku 4.5" },
 ];
 
 const DEFAULT_MODEL = "claude-sonnet-4-6";
 
+const textEncoder = new TextEncoder();
+
 // ── Types ─────────────────────────────────────────────────────────────
 
 export type EffortLevel = "off" | "low" | "medium" | "high" | "max";
-export type PermissionMode = "plan" | "default" | "acceptEdits" | "auto" | "dontAsk" | "bypassPermissions";
+export type PermissionMode =
+  | "plan"
+  | "default"
+  | "acceptEdits"
+  | "auto"
+  | "dontAsk"
+  | "bypassPermissions";
 
 const DEFAULT_PERMISSION_MODE: PermissionMode = "acceptEdits";
+
+type TurnDeferred = {
+  ws: ServerWebSocket<any>;
+  state: PromptState;
+  resolve: (r: PromptResult) => void;
+  reject: (e: Error) => void;
+};
 
 type Session = {
   id: string;
@@ -28,7 +51,11 @@ type Session = {
   model: string;
   effort: EffortLevel;
   permissionMode: PermissionMode;
-  activeProcess: ReturnType<typeof Bun.spawn> | null;
+  /** Live Claude subprocess for this session (`stdin` is a Bun FileSink for NDJSON turns). */
+  proc: ReturnType<typeof Bun.spawn> | null;
+  /** Matches last spawned process: model|permission|effort (not claudeSessionId — that appears after init). */
+  spawnKey: string;
+  currentTurn: TurnDeferred | null;
 };
 
 type PromptState = {
@@ -39,7 +66,35 @@ type PromptState = {
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
-function mapToolKind(name: string): "read" | "edit" | "search" | "execute" | "agent" | "other" {
+function buildSpawnKey(session: Session): string {
+  return `${session.model}|${session.permissionMode}|${session.effort}`;
+}
+
+function buildClaudeArgs(session: Session): string[] {
+  const args: string[] = [
+    "--print",
+    "--input-format",
+    "stream-json",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--model",
+    session.model,
+    "--permission-mode",
+    session.permissionMode,
+  ];
+  if (session.effort !== "off") {
+    args.push("--effort", session.effort);
+  }
+  if (session.claudeSessionId) {
+    args.push("--resume", session.claudeSessionId);
+  }
+  return args;
+}
+
+function mapToolKind(
+  name: string,
+): "read" | "edit" | "search" | "execute" | "agent" | "other" {
   switch (name) {
     case "Read":
       return "read";
@@ -62,16 +117,26 @@ function mapToolKind(name: string): "read" | "edit" | "search" | "execute" | "ag
 
 function formatToolTitle(name: string, input: Record<string, unknown>): string {
   switch (name) {
-    case "Read": return `Read ${input.file_path ?? ""}`;
-    case "Bash": return `Bash: ${String(input.command ?? "").slice(0, 60)}`;
-    case "Edit": return `Edit ${input.file_path ?? ""}`;
-    case "Write": return `Write ${input.file_path ?? ""}`;
-    case "Glob": return `Glob ${input.pattern ?? ""}`;
-    case "Grep": return `Grep "${input.pattern ?? ""}"`;
-    case "WebFetch": return `Fetch ${input.url ?? ""}`;
-    case "WebSearch": return `Search "${input.query ?? ""}"`;
-    case "Agent": return `Agent: ${String(input.description ?? "").slice(0, 60)}`;
-    default: return name;
+    case "Read":
+      return `Read ${input.file_path ?? ""}`;
+    case "Bash":
+      return `Bash: ${String(input.command ?? "").slice(0, 60)}`;
+    case "Edit":
+      return `Edit ${input.file_path ?? ""}`;
+    case "Write":
+      return `Write ${input.file_path ?? ""}`;
+    case "Glob":
+      return `Glob ${input.pattern ?? ""}`;
+    case "Grep":
+      return `Grep "${input.pattern ?? ""}"`;
+    case "WebFetch":
+      return `Fetch ${input.url ?? ""}`;
+    case "WebSearch":
+      return `Search "${input.query ?? ""}"`;
+    case "Agent":
+      return `Agent: ${String(input.description ?? "").slice(0, 60)}`;
+    default:
+      return name;
   }
 }
 
@@ -89,7 +154,8 @@ function emitDelta(
   if (!delta) return;
   sentTextLen.set(key, fullText.length);
   sendUpdate(ws, {
-    sessionUpdate: kind === "text" ? "agent_message_chunk" : "agent_thought_chunk",
+    sessionUpdate:
+      kind === "text" ? "agent_message_chunk" : "agent_thought_chunk",
     content: { type: "text", text: delta },
   });
 }
@@ -105,9 +171,18 @@ function buildToolResultContent(entry: any, block: any): unknown[] {
   const tur = entry.toolUseResult;
 
   // If we have structured edit result data, emit a diff block
-  if (tur && tur.filePath && (tur.newString != null || tur.oldString != null || tur.structuredPatch)) {
+  if (
+    tur &&
+    tur.filePath &&
+    (tur.newString != null || tur.oldString != null || tur.structuredPatch)
+  ) {
     const content: unknown[] = [
-      { type: "diff", path: tur.filePath, oldText: tur.oldString ?? "", newText: tur.newString ?? "" },
+      {
+        type: "diff",
+        path: tur.filePath,
+        oldText: tur.oldString ?? "",
+        newText: tur.newString ?? "",
+      },
     ];
     // Also include the plain text confirmation as secondary content
     const text = extractToolResultText(block);
@@ -157,16 +232,28 @@ async function extractTitle(filePath: string): Promise<string | undefined> {
     const line = lines[i]?.trim();
     if (!line) continue;
     let obj: any;
-    try { obj = JSON.parse(line); } catch { continue; }
+    try {
+      obj = JSON.parse(line);
+    } catch {
+      continue;
+    }
     if (obj.type !== "user" || obj.isMeta) continue;
 
     const content = obj.message?.content;
-    if (typeof content === "string" && !content.includes("<command-name>") && !content.includes("<local-command")) {
+    if (
+      typeof content === "string" &&
+      !content.includes("<command-name>") &&
+      !content.includes("<local-command")
+    ) {
       return content.slice(0, 80);
     }
     if (Array.isArray(content)) {
       const textBlock = content.find((b: any) => b.type === "text" && b.text);
-      if (textBlock && !textBlock.text.includes("<command-name>") && !textBlock.text.includes("<local-command")) {
+      if (
+        textBlock &&
+        !textBlock.text.includes("<command-name>") &&
+        !textBlock.text.includes("<local-command")
+      ) {
         return textBlock.text.slice(0, 80);
       }
     }
@@ -188,13 +275,23 @@ export class StreamJsonBackend implements Backend {
       model: DEFAULT_MODEL,
       effort: "off",
       permissionMode: DEFAULT_PERMISSION_MODE,
-      activeProcess: null,
+      proc: null,
+      spawnKey: "",
+      currentTurn: null,
     };
     this.sessions.set(session.id, session);
-    return { sessionId: session.id, models: MODELS, currentModelId: session.model, currentPermissionMode: session.permissionMode };
+    return {
+      sessionId: session.id,
+      models: MODELS,
+      currentModelId: session.model,
+      currentPermissionMode: session.permissionMode,
+    };
   }
 
-  async handleLoadSession(ws: ServerWebSocket<any>, sessionId: string): Promise<SessionResult> {
+  async handleLoadSession(
+    ws: ServerWebSocket<any>,
+    sessionId: string,
+  ): Promise<SessionResult> {
     let session = this.sessions.get(sessionId);
 
     const filePath = join(getSessionsDir(), `${sessionId}.jsonl`);
@@ -213,7 +310,9 @@ export class StreamJsonBackend implements Backend {
         model: DEFAULT_MODEL,
         effort: "off",
         permissionMode: DEFAULT_PERMISSION_MODE,
-        activeProcess: null,
+        proc: null,
+        spawnKey: "",
+        currentTurn: null,
       };
       this.sessions.set(sessionId, session);
     }
@@ -223,18 +322,27 @@ export class StreamJsonBackend implements Backend {
       this.replayHistory(ws, filePath);
     }
 
-    return { sessionId, models: MODELS, currentModelId: session.model, currentPermissionMode: session.permissionMode };
+    return {
+      sessionId,
+      models: MODELS,
+      currentModelId: session.model,
+      currentPermissionMode: session.permissionMode,
+    };
   }
 
   /** Parse on-disk JSONL and send user/assistant text as replay updates. */
   private replayHistory(ws: ServerWebSocket<any>, filePath: string) {
-    const raw = require("fs").readFileSync(filePath, "utf-8") as string;
+    const raw = readFileSync(filePath, "utf-8") as string;
     const lines = raw.split("\n");
 
     for (const line of lines) {
       if (!line.trim()) continue;
       let entry: any;
-      try { entry = JSON.parse(line); } catch { continue; }
+      try {
+        entry = JSON.parse(line);
+      } catch {
+        continue;
+      }
 
       if (entry.type === "user") {
         if (entry.isMeta) continue;
@@ -244,7 +352,12 @@ export class StreamJsonBackend implements Backend {
 
         // String content = raw user text (may contain XML commands — skip those)
         if (typeof content === "string") {
-          if (content.includes("<command-name>") || content.includes("<local-command") || content.includes("<system-reminder>")) continue;
+          if (
+            content.includes("<command-name>") ||
+            content.includes("<local-command") ||
+            content.includes("<system-reminder>")
+          )
+            continue;
           sendUpdate(ws, {
             sessionUpdate: "user_message_chunk",
             messageId: promptId,
@@ -257,7 +370,12 @@ export class StreamJsonBackend implements Backend {
         if (Array.isArray(content)) {
           for (const block of content) {
             if (block.type === "text" && block.text) {
-              if (block.text.includes("<command-name>") || block.text.includes("<local-command") || block.text.includes("<system-reminder>")) continue;
+              if (
+                block.text.includes("<command-name>") ||
+                block.text.includes("<local-command") ||
+                block.text.includes("<system-reminder>")
+              )
+                continue;
               sendUpdate(ws, {
                 sessionUpdate: "user_message_chunk",
                 messageId: promptId,
@@ -294,10 +412,25 @@ export class StreamJsonBackend implements Backend {
           } else if (block.type === "tool_use") {
             const input: Record<string, unknown> = block.input ?? {};
             const toolContent: unknown[] =
-              block.name === "Edit" && input.old_string != null && input.new_string != null
-                ? [{ type: "diff", path: input.file_path ?? "", oldText: input.old_string, newText: input.new_string }]
+              block.name === "Edit" &&
+              input.old_string != null &&
+              input.new_string != null
+                ? [
+                    {
+                      type: "diff",
+                      path: input.file_path ?? "",
+                      oldText: input.old_string,
+                      newText: input.new_string,
+                    },
+                  ]
                 : block.name === "Write" && input.content != null
-                  ? [{ type: "diff", path: input.file_path ?? "", newText: input.content }]
+                  ? [
+                      {
+                        type: "diff",
+                        path: input.file_path ?? "",
+                        newText: input.content,
+                      },
+                    ]
                   : [];
             sendUpdate(ws, {
               sessionUpdate: "tool_call",
@@ -316,6 +449,190 @@ export class StreamJsonBackend implements Backend {
     }
   }
 
+  /**
+   * Stops the Claude subprocess. When `rejectTurn` is true (default), any in-flight
+   * prompt is rejected — use false when replacing the process while the same prompt
+   * is still being handled (spawnKey / flags changed).
+   */
+  private async teardownSessionProcess(
+    session: Session,
+    opts: { rejectTurn?: boolean; reason?: string } = {},
+  ): Promise<void> {
+    const rejectTurn = opts.rejectTurn ?? true;
+    const reason = opts.reason ?? "Session process torn down";
+
+    if (rejectTurn && session.currentTurn) {
+      const turn = session.currentTurn;
+      session.currentTurn = null;
+      turn.reject(new Error(reason));
+    }
+
+    if (session.proc?.stdin) {
+      try {
+        session.proc.stdin.end();
+      } catch {
+        // ignore
+      }
+    }
+
+    if (session.proc) {
+      try {
+        session.proc.kill();
+      } catch {
+        // ignore
+      }
+      session.proc = null;
+    }
+
+    session.spawnKey = "";
+  }
+
+  private async ensureProcess(session: Session): Promise<void> {
+    const desiredKey = buildSpawnKey(session);
+    if (session.proc && session.spawnKey === desiredKey) {
+      return;
+    }
+
+    await this.teardownSessionProcess(session, { rejectTurn: false });
+
+    const args = buildClaudeArgs(session);
+    console.log(
+      "[claude] spawning:",
+      ["claude", ...args].join(" ").slice(0, 160),
+    );
+
+    const proc = Bun.spawn(["claude", ...args], {
+      stdout: "pipe",
+      stderr: "pipe",
+      stdin: "pipe",
+      cwd: process.cwd(),
+    });
+
+    session.proc = proc;
+    session.spawnKey = desiredKey;
+
+    // Drain stderr progressively to avoid pipe-buffer deadlock on long runs
+    void (async () => {
+      try {
+        for await (const chunk of proc.stderr) {
+          if (session.proc !== proc) break;
+          const t = new TextDecoder().decode(chunk).trim();
+          if (t) console.error("[claude] stderr:", t);
+        }
+      } catch {
+        // ignore
+      }
+    })();
+
+    void this.runStdoutReader(session, proc);
+  }
+
+  private async runStdoutReader(
+    session: Session,
+    proc: ReturnType<typeof Bun.spawn>,
+  ): Promise<void> {
+    const stdout = proc.stdout;
+    if (!stdout) return;
+
+    const reader = stdout.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+
+    try {
+      while (true) {
+        if (session.proc !== proc) break;
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+
+        let idx = buf.indexOf("\n");
+        while (idx !== -1) {
+          const line = buf.slice(0, idx).trim();
+          buf = buf.slice(idx + 1);
+          if (!line) {
+            idx = buf.indexOf("\n");
+            continue;
+          }
+          let event: any;
+          try {
+            event = JSON.parse(line);
+          } catch {
+            idx = buf.indexOf("\n");
+            continue;
+          }
+
+          const turn = session.currentTurn;
+          if (turn) {
+            sendJson(turn.ws, { type: "debug", event });
+            this.processEvent(turn.ws, session, event, turn.state);
+          }
+
+          if (event.type === "result" && session.currentTurn) {
+            const t = session.currentTurn;
+            session.currentTurn = null;
+            t.resolve(t.state.result);
+          }
+          idx = buf.indexOf("\n");
+        }
+      }
+
+      const trailing = buf.trim();
+      if (trailing && session.proc === proc) {
+        let event: any;
+        try {
+          event = JSON.parse(trailing);
+        } catch {
+          event = null;
+        }
+        if (event) {
+          const turn = session.currentTurn;
+          if (turn) {
+            sendJson(turn.ws, { type: "debug", event });
+            this.processEvent(turn.ws, session, event, turn.state);
+          }
+          if (event.type === "result" && session.currentTurn) {
+            const t = session.currentTurn;
+            session.currentTurn = null;
+            t.resolve(t.state.result);
+          }
+        }
+      }
+    } finally {
+      try {
+        reader.releaseLock();
+      } catch {
+        // ignore
+      }
+
+      if (session.proc === proc) {
+        const exitCode = await proc.exited.catch(() => -1);
+        console.log("[claude] exited with code:", exitCode);
+        if (session.currentTurn) {
+          const t = session.currentTurn;
+          session.currentTurn = null;
+          t.reject(new Error(`claude process exited (code ${exitCode})`));
+        }
+        session.proc = null;
+        session.spawnKey = "";
+      }
+    }
+  }
+
+  private async writeUserMessage(
+    session: Session,
+    text: string,
+  ): Promise<void> {
+    const stdin = session.proc?.stdin;
+    if (!stdin || typeof stdin.write !== "function") {
+      throw new Error("Claude stdin not available");
+    }
+    const line = `${JSON.stringify({
+      type: "user",
+      message: { role: "user", content: text },
+    })}\n`;
+    stdin.write(textEncoder.encode(line));
+  }
+
   async handlePrompt(
     ws: ServerWebSocket<any>,
     sessionId: string,
@@ -326,83 +643,29 @@ export class StreamJsonBackend implements Backend {
 
     if (!session.title) session.title = text.slice(0, 80);
 
-    const args: string[] = [
-      "--output-format", "stream-json",
-      "--verbose",
-      "--model", session.model,
-      "--permission-mode", session.permissionMode,
-    ];
-    if (session.effort !== "off") {
-      args.push("--effort", session.effort);
-    }
-    if (session.claudeSessionId) {
-      args.push("--resume", session.claudeSessionId);
-    }
-    args.push("-p", text);
-
-    console.log("[claude] spawning:", ["claude", ...args].join(" ").slice(0, 120));
-
-    const proc = Bun.spawn(["claude", ...args], {
-      stdout: "pipe",
-      stderr: "pipe",
-      stdin: "ignore",
-      cwd: process.cwd(),
-    });
-    session.activeProcess = proc;
-
-    // Drain stderr progressively to avoid pipe-buffer deadlock on long runs
-    (async () => {
-      for await (const chunk of proc.stderr) {
-        const text = new TextDecoder().decode(chunk).trim();
-        if (text) console.error("[claude] stderr:", text);
-      }
-    })();
-
     const state: PromptState = {
       sentTextLen: new Map(),
       seenToolCallIds: new Set(),
       result: { stopReason: "end_turn" },
     };
 
+    const promise = new Promise<PromptResult>((resolve, reject) => {
+      session.currentTurn = { ws, state, resolve, reject };
+    });
+
     try {
-      const reader = proc.stdout.getReader();
-      const decoder = new TextDecoder();
-      let buf = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-
-        let idx: number;
-        while ((idx = buf.indexOf("\n")) !== -1) {
-          const line = buf.slice(0, idx).trim();
-          buf = buf.slice(idx + 1);
-          if (!line) continue;
-          let event: any;
-          try { event = JSON.parse(line); } catch { continue; }
-          sendJson(ws, { type: "debug", event });
-          this.processEvent(ws, session, event, state);
-        }
+      await this.ensureProcess(session);
+      await this.writeUserMessage(session, text);
+    } catch (e) {
+      if (session.currentTurn) {
+        const t = session.currentTurn;
+        session.currentTurn = null;
+        t.reject(e instanceof Error ? e : new Error(String(e)));
       }
-
-      // Flush remaining partial line (stream may not end with \n)
-      const trailing = buf.trim();
-      if (trailing) {
-        try {
-          const event = JSON.parse(trailing);
-          sendJson(ws, { type: "debug", event });
-          this.processEvent(ws, session, event, state);
-        } catch {}
-      }
-
-      const exitCode = await proc.exited;
-      console.log("[claude] exited with code:", exitCode);
-    } finally {
-      session.activeProcess = null;
+      throw e;
     }
 
-    return state.result;
+    return await promise;
   }
 
   private processEvent(
@@ -413,7 +676,11 @@ export class StreamJsonBackend implements Backend {
   ) {
     switch (event.type) {
       case "system": {
-        if (event.subtype === "init" && event.session_id && !session.claudeSessionId) {
+        if (
+          event.subtype === "init" &&
+          event.session_id &&
+          !session.claudeSessionId
+        ) {
           session.claudeSessionId = event.session_id;
         }
         break;
@@ -421,19 +688,37 @@ export class StreamJsonBackend implements Backend {
 
       case "assistant": {
         const msgId: string = event.message?.id ?? "";
-        for (const block of (event.message?.content ?? [])) {
+        for (const block of event.message?.content ?? []) {
           if (block.type === "text" && block.text) {
             emitDelta(ws, state.sentTextLen, msgId, "text", block.text);
           } else if (block.type === "thinking" && block.thinking) {
             emitDelta(ws, state.sentTextLen, msgId, "thinking", block.thinking);
-          } else if (block.type === "tool_use" && !state.seenToolCallIds.has(block.id)) {
+          } else if (
+            block.type === "tool_use" &&
+            !state.seenToolCallIds.has(block.id)
+          ) {
             state.seenToolCallIds.add(block.id);
             const input: Record<string, unknown> = block.input ?? {};
             const content: unknown[] =
-              block.name === "Edit" && input.old_string != null && input.new_string != null
-                ? [{ type: "diff", path: input.file_path ?? "", oldText: input.old_string, newText: input.new_string }]
+              block.name === "Edit" &&
+              input.old_string != null &&
+              input.new_string != null
+                ? [
+                    {
+                      type: "diff",
+                      path: input.file_path ?? "",
+                      oldText: input.old_string,
+                      newText: input.new_string,
+                    },
+                  ]
                 : block.name === "Write" && input.content != null
-                  ? [{ type: "diff", path: input.file_path ?? "", newText: input.content }]
+                  ? [
+                      {
+                        type: "diff",
+                        path: input.file_path ?? "",
+                        newText: input.content,
+                      },
+                    ]
                   : [];
             sendUpdate(ws, {
               sessionUpdate: "tool_call",
@@ -452,16 +737,22 @@ export class StreamJsonBackend implements Backend {
       }
 
       case "user": {
-        for (const block of (event.message?.content ?? [])) {
+        for (const block of event.message?.content ?? []) {
           if (block.type === "tool_result") {
             const resultContent = buildToolResultContent(event, block);
             const isPermissionDenial =
               block.is_error &&
-              extractToolResultText(block).includes("Claude requested permissions");
+              extractToolResultText(block).includes(
+                "Claude requested permissions",
+              );
             sendUpdate(ws, {
               sessionUpdate: "tool_call_update",
               toolCallId: block.tool_use_id,
-              status: isPermissionDenial ? "permission_denied" : block.is_error ? "failed" : "completed",
+              status: isPermissionDenial
+                ? "permission_denied"
+                : block.is_error
+                  ? "failed"
+                  : "completed",
               content: resultContent,
             });
           }
@@ -477,11 +768,16 @@ export class StreamJsonBackend implements Backend {
             outputTokens: event.usage.output_tokens ?? 0,
           };
         }
-        if (Array.isArray(event.permission_denials) && event.permission_denials.length > 0) {
-          state.result.permissionDenials = event.permission_denials.map((d: any) => ({
-            toolName: d.tool_name as string,
-            toolUseId: d.tool_use_id as string,
-          }));
+        if (
+          Array.isArray(event.permission_denials) &&
+          event.permission_denials.length > 0
+        ) {
+          state.result.permissionDenials = event.permission_denials.map(
+            (d: any) => ({
+              toolName: d.tool_name as string,
+              toolUseId: d.tool_use_id as string,
+            }),
+          );
         }
         break;
       }
@@ -490,7 +786,29 @@ export class StreamJsonBackend implements Backend {
 
   handleCancel(sessionId: string): void {
     const session = this.sessions.get(sessionId);
-    session?.activeProcess?.kill();
+    const proc = session?.proc;
+    const stdin = proc?.stdin;
+    if (!proc || !stdin || typeof stdin.write !== "function") {
+      proc?.kill();
+      return;
+    }
+
+    const line =
+      JSON.stringify({
+        type: "control_request",
+        request_id: crypto.randomUUID(),
+        request: { subtype: "interrupt" },
+      }) + "\n";
+
+    try {
+      stdin.write(textEncoder.encode(`${line}\n`));
+    } catch {
+      try {
+        proc.kill();
+      } catch {
+        // ignore
+      }
+    }
   }
 
   async handleSetModel(sessionId: string, modelId: string): Promise<string> {
@@ -500,14 +818,20 @@ export class StreamJsonBackend implements Backend {
     return modelId;
   }
 
-  async handleSetEffort(sessionId: string, effort: EffortLevel): Promise<EffortLevel> {
+  async handleSetEffort(
+    sessionId: string,
+    effort: EffortLevel,
+  ): Promise<EffortLevel> {
     const session = this.sessions.get(sessionId);
     if (!session) throw new Error(`Session ${sessionId} not found`);
     session.effort = effort;
     return effort;
   }
 
-  async handleSetPermissionMode(sessionId: string, permissionMode: PermissionMode): Promise<PermissionMode> {
+  async handleSetPermissionMode(
+    sessionId: string,
+    permissionMode: PermissionMode,
+  ): Promise<PermissionMode> {
     const session = this.sessions.get(sessionId);
     if (!session) throw new Error(`Session ${sessionId} not found`);
     session.permissionMode = permissionMode;
