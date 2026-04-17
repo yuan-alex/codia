@@ -30,5 +30,10 @@
         "organizeImports": "on"
       }
     }
-  }
+  },
+  "extends": [
+    "ultracite/biome/core",
+    "ultracite/biome/react",
+    "ultracite/biome/vitest"
+  ]
 }

@@ -1,15 +1,4 @@
 {
-  "name": "codia",
-  "module": "index.ts",
-  "type": "module",
-  "private": true,
-  "scripts": {
-    "dev": "concurrently --kill-others \"bun --hot run ./src/server/index.ts\" \"cd src/web && bunx vite\"",
-    "test": "bun test",
-    "test:tools": "bun test tools.test.ts",
-    "test:api": "bun test src/server/api.test.ts",
-    "format": "biome format --write ."
-  },
   "dependencies": {
     "@types/react-dom": "^19.2.3",
     "react": "^19.2.5",
@@ -17,14 +6,30 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.11",
+    "@biomejs/biome": "2.4.12",
     "@types/bun": "^1.3.12",
     "@types/node": "^25.6.0",
     "@vitejs/plugin-react": "^6.0.1",
     "concurrently": "^9.2.1",
+    "lefthook": "^2.1.6",
+    "ultracite": "7.6.0",
     "vite": "^8.0.8"
   },
+  "name": "codia",
   "peerDependencies": {
     "typescript": "^6.0.2"
-  }
+  },
+  "scripts": {
+    "dev": "concurrently --kill-others \"bun --hot run ./src/server/index.ts\" \"cd src/web && bunx vite\"",
+    "test": "bun test",
+    "test:tools": "bun test tools.test.ts",
+    "test:api": "bun test src/server/api.test.ts",
+    "format": "biome format --write .",
+    "check": "ultracite check",
+    "fix": "ultracite fix",
+    "prepare": "lefthook install"
+  },
+  "type": "module",
+  "module": "index.ts",
+  "private": true
 }
