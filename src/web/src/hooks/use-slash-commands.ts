@@ -54,22 +54,19 @@ export function useSlashCommands(
     prevFilteredLen.current = filteredCommands.length;
   }
 
-  const selectCommand = useCallback(
-    (cmd: SlashCommand) => {
-      const c = ctxRef.current;
-      if (cmd.action.type === "client") {
-        if (cmd.args) {
-          c.setInput(`/${cmd.name} `);
-        } else {
-          cmd.action.execute("", c);
-          c.setInput("");
-        }
-      } else if (cmd.action.type === "transform") {
+  const selectCommand = useCallback((cmd: SlashCommand) => {
+    const c = ctxRef.current;
+    if (cmd.action.type === "client") {
+      if (cmd.args) {
         c.setInput(`/${cmd.name} `);
+      } else {
+        cmd.action.execute("", c);
+        c.setInput("");
       }
-    },
-    [],
-  );
+    } else if (cmd.action.type === "transform") {
+      c.setInput(`/${cmd.name} `);
+    }
+  }, []);
 
   // We store filteredCommands in a ref so handleKeyDown can access the current list
   const filteredRef = useRef(filteredCommands);
@@ -118,34 +115,30 @@ export function useSlashCommands(
     [],
   );
 
-  const executeFromInput = useCallback(
-    (text: string): boolean => {
-      const t = text.trimStart();
-      if (!t.startsWith("/")) return false;
+  const executeFromInput = useCallback((text: string): boolean => {
+    const t = text.trimStart();
+    if (!t.startsWith("/")) return false;
 
-      const withoutSlash = t.slice(1);
-      const spaceIdx = withoutSlash.indexOf(" ");
-      const cmdName =
-        spaceIdx >= 0 ? withoutSlash.slice(0, spaceIdx) : withoutSlash;
-      const args =
-        spaceIdx >= 0 ? withoutSlash.slice(spaceIdx + 1).trim() : "";
+    const withoutSlash = t.slice(1);
+    const spaceIdx = withoutSlash.indexOf(" ");
+    const cmdName =
+      spaceIdx >= 0 ? withoutSlash.slice(0, spaceIdx) : withoutSlash;
+    const args = spaceIdx >= 0 ? withoutSlash.slice(spaceIdx + 1).trim() : "";
 
-      const cmd = slashCommands.find(
-        (c) => c.name.toLowerCase() === cmdName.toLowerCase(),
-      );
-      if (!cmd) return false;
+    const cmd = slashCommands.find(
+      (c) => c.name.toLowerCase() === cmdName.toLowerCase(),
+    );
+    if (!cmd) return false;
 
-      const c = ctxRef.current;
-      if (cmd.action.type === "client") {
-        cmd.action.execute(args, c);
-      } else if (cmd.action.type === "transform") {
-        return false;
-      }
-      c.setInput("");
-      return true;
-    },
-    [],
-  );
+    const c = ctxRef.current;
+    if (cmd.action.type === "client") {
+      cmd.action.execute(args, c);
+    } else if (cmd.action.type === "transform") {
+      return false;
+    }
+    c.setInput("");
+    return true;
+  }, []);
 
   return {
     isOpen,

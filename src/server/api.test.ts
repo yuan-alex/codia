@@ -105,5 +105,4 @@ describe("API", () => {
     console.log(`  Roles: ${roles.join(", ")}`);
     console.log(`  Part types: ${[...new Set(partTypes)].join(", ")}`);
   }, 60_000);
-
 });

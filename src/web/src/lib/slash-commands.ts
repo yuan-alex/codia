@@ -1,8 +1,4 @@
-import {
-  CpuIcon,
-  HelpCircleIcon,
-  type LucideIcon,
-} from "lucide-react";
+import { CpuIcon, HelpCircleIcon, type LucideIcon } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────
 

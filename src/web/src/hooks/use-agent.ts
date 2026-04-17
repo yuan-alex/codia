@@ -23,11 +23,7 @@ export type ToolKind =
   | "agent"
   | "other";
 
-export type ToolCallStatus =
-  | "pending"
-  | "in_progress"
-  | "completed"
-  | "failed";
+export type ToolCallStatus = "pending" | "in_progress" | "completed" | "failed";
 
 export type ToolCallLocation = {
   path: string;
@@ -66,7 +62,13 @@ export type ModelInfo = {
   description?: string;
 };
 
-export type PermissionMode = "plan" | "default" | "acceptEdits" | "auto" | "dontAsk" | "bypassPermissions";
+export type PermissionMode =
+  | "plan"
+  | "default"
+  | "acceptEdits"
+  | "auto"
+  | "dontAsk"
+  | "bypassPermissions";
 
 export type PermissionDenial = {
   toolName: string;
@@ -112,8 +114,11 @@ export function useAgent(sessionId: string | null) {
   const [status, setStatus] = useState<Status>("connecting");
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [selectedModel, setSelectedModel] = useState<string>("");
-  const [permissionMode, setPermissionMode] = useState<PermissionMode>("acceptEdits");
-  const [permissionDenials, setPermissionDenials] = useState<PermissionDenial[]>([]);
+  const [permissionMode, setPermissionMode] =
+    useState<PermissionMode>("acceptEdits");
+  const [permissionDenials, setPermissionDenials] = useState<
+    PermissionDenial[]
+  >([]);
   const [resolvedSessionId, setResolvedSessionId] = useState<string | null>(
     null,
   );
@@ -196,7 +201,10 @@ export function useAgent(sessionId: string | null) {
         // chunks belonging to the same logical message.  Use it to detect
         // message boundaries so that separate user turns (e.g. slash commands
         // like /effort followed by the real prompt) don't get smashed together.
-        const messageId = (update as any).messageId as string | null | undefined;
+        const messageId = (update as any).messageId as
+          | string
+          | null
+          | undefined;
 
         setMessages((prev) => {
           const last = prev[prev.length - 1];
@@ -358,7 +366,8 @@ export function useAgent(sessionId: string | null) {
         setResolvedSessionId(msg.sessionId);
         setModels(msg.models);
         setSelectedModel(msg.currentModelId ?? msg.models[0]?.modelId ?? "");
-        if (msg.currentPermissionMode) setPermissionMode(msg.currentPermissionMode);
+        if (msg.currentPermissionMode)
+          setPermissionMode(msg.currentPermissionMode);
         setStatus("ready");
         // Finalize any replayed assistant message from session/load
         if (currentAssistantRef.current) {
@@ -386,7 +395,11 @@ export function useAgent(sessionId: string | null) {
         console.error("[agent] Error:", msg.message);
         setError(msg.message);
         // Use ref to avoid stale closure over status
-        if ((statusRef.current === "connecting" || statusRef.current === "loading") && sessionId) {
+        if (
+          (statusRef.current === "connecting" ||
+            statusRef.current === "loading") &&
+          sessionId
+        ) {
           ws.send(JSON.stringify({ type: "session/new" }));
           return;
         }
@@ -481,7 +494,9 @@ export function useAgent(sessionId: string | null) {
   const changePermissionMode = useCallback((mode: PermissionMode) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
     setPermissionMode(mode);
-    wsRef.current.send(JSON.stringify({ type: "set_permission_mode", permissionMode: mode }));
+    wsRef.current.send(
+      JSON.stringify({ type: "set_permission_mode", permissionMode: mode }),
+    );
   }, []);
 
   const addInfoMessage = useCallback((text: string) => {

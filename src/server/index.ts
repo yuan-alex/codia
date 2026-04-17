@@ -194,7 +194,10 @@ Bun.serve<WsData>({
         const backend = sessionBackendMap.get(sessionId);
         if (!backend?.handleSetPermissionMode) return;
         try {
-          const permissionMode = await backend.handleSetPermissionMode(sessionId, msg.permissionMode);
+          const permissionMode = await backend.handleSetPermissionMode(
+            sessionId,
+            msg.permissionMode,
+          );
           sendJson(ws, { type: "permission_mode/set", permissionMode });
         } catch (error) {
           console.error("[ws] set_permission_mode error:", error);

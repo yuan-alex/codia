@@ -20,7 +20,11 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { useAgent, type AgentMessage, type PermissionMode } from "@/hooks/use-agent";
+import {
+  useAgent,
+  type AgentMessage,
+  type PermissionMode,
+} from "@/hooks/use-agent";
 import { useSlashCommands } from "@/hooks/use-slash-commands";
 import { SlashCommandMenu } from "@/components/slash-command-menu";
 
@@ -377,12 +381,40 @@ const PERMISSION_MODES: {
   label: string;
   description: string;
 }[] = [
-  { id: "plan", label: "Plan", description: "Read-only — Claude can analyze but not modify files or run commands" },
-  { id: "default", label: "Default", description: "Prompts for permission on first use of each tool" },
-  { id: "acceptEdits", label: "Accept edits", description: "Auto-accepts file edits and common filesystem commands (mkdir, touch, mv, cp)" },
-  { id: "auto", label: "Auto", description: "Auto-approves tool calls with background safety checks (research preview)" },
-  { id: "dontAsk", label: "Don't ask", description: "Auto-denies tools unless pre-approved via allow rules" },
-  { id: "bypassPermissions", label: "Bypass all", description: "Skips permission prompts except for protected directories (.git, .claude, etc.)" },
+  {
+    id: "plan",
+    label: "Plan",
+    description:
+      "Read-only — Claude can analyze but not modify files or run commands",
+  },
+  {
+    id: "default",
+    label: "Default",
+    description: "Prompts for permission on first use of each tool",
+  },
+  {
+    id: "acceptEdits",
+    label: "Accept edits",
+    description:
+      "Auto-accepts file edits and common filesystem commands (mkdir, touch, mv, cp)",
+  },
+  {
+    id: "auto",
+    label: "Auto",
+    description:
+      "Auto-approves tool calls with background safety checks (research preview)",
+  },
+  {
+    id: "dontAsk",
+    label: "Don't ask",
+    description: "Auto-denies tools unless pre-approved via allow rules",
+  },
+  {
+    id: "bypassPermissions",
+    label: "Bypass all",
+    description:
+      "Skips permission prompts except for protected directories (.git, .claude, etc.)",
+  },
 ];
 
 export function ChatInner({
@@ -400,7 +432,9 @@ export function ChatInner({
   const [effort, setEffort] = useState<EffortLevel>("medium");
   const agent = useAgent(sessionId);
   const permissionMode = agent.permissionMode;
-  const activePermission = PERMISSION_MODES.find((m) => m.id === permissionMode) ?? PERMISSION_MODES[1];
+  const activePermission =
+    PERMISSION_MODES.find((m) => m.id === permissionMode) ??
+    PERMISSION_MODES[1];
 
   useEffect(() => {
     if (agent.status === "ready") agent.changeEffort(effort);
@@ -532,9 +566,12 @@ export function ChatInner({
             <span>
               Claude was blocked from using{" "}
               <span className="font-medium">
-                {[...new Set(agent.permissionDenials.map((d) => d.toolName))].join(", ")}
+                {[
+                  ...new Set(agent.permissionDenials.map((d) => d.toolName)),
+                ].join(", ")}
               </span>
-              . Change the permission mode below and resend your message to retry.
+              . Change the permission mode below and resend your message to
+              retry.
             </span>
           </div>
         </div>
@@ -623,12 +660,16 @@ export function ChatInner({
                       <CheckIcon
                         className={
                           "size-3.5 mt-0.5 shrink-0 " +
-                          (m.id === permissionMode ? "text-primary" : "opacity-0")
+                          (m.id === permissionMode
+                            ? "text-primary"
+                            : "opacity-0")
                         }
                       />
                       <div className="flex flex-col">
                         <span className="text-sm font-medium">{m.label}</span>
-                        <span className="text-xs text-muted-foreground">{m.description}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {m.description}
+                        </span>
                       </div>
                     </DropdownMenuItem>
                   ))}

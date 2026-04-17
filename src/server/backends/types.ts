@@ -42,10 +42,7 @@ export interface Backend {
 
   handleCancel(sessionId: string): void;
 
-  handleSetModel?(
-    sessionId: string,
-    modelId: string,
-  ): Promise<string>;
+  handleSetModel?(sessionId: string, modelId: string): Promise<string>;
 
   handleSetEffort?(
     sessionId: string,
@@ -61,11 +58,17 @@ export interface Backend {
 }
 
 /** Send a typed JSON message over a WebSocket. */
-export function sendJson(ws: ServerWebSocket<any>, payload: Record<string, unknown>) {
+export function sendJson(
+  ws: ServerWebSocket<any>,
+  payload: Record<string, unknown>,
+) {
   ws.send(JSON.stringify(payload));
 }
 
 /** Send an update message over a WebSocket. */
-export function sendUpdate(ws: ServerWebSocket<any>, update: Record<string, unknown>) {
+export function sendUpdate(
+  ws: ServerWebSocket<any>,
+  update: Record<string, unknown>,
+) {
   ws.send(JSON.stringify({ type: "update", update }));
 }

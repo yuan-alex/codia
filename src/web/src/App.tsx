@@ -3,7 +3,11 @@ import { useState, useEffect, useCallback } from "react";
 import { ChatInner, type ChatDebugInfo } from "./components/chat-inner";
 import { DebugPanel } from "./components/debug-panel";
 import { AppSidebar } from "./components/app-sidebar";
-import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import {
+  SidebarProvider,
+  SidebarInset,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
 
 function useTheme() {
   const [isDark, setIsDark] = useState(() => {
@@ -59,13 +63,10 @@ export default function App() {
     setSessionIdInUrl(id);
   };
 
-  const handleSessionReady = useCallback(
-    (id: string) => {
-      setActiveSessionId(id);
-      setSessionIdInUrl(id);
-    },
-    [],
-  );
+  const handleSessionReady = useCallback((id: string) => {
+    setActiveSessionId(id);
+    setSessionIdInUrl(id);
+  }, []);
 
   return (
     <SidebarProvider className="h-svh !min-h-0">
@@ -90,9 +91,7 @@ export default function App() {
         </div>
       </SidebarInset>
 
-      {import.meta.env.DEV && chatDebug && (
-        <DebugPanel data={chatDebug} />
-      )}
+      {import.meta.env.DEV && chatDebug && <DebugPanel data={chatDebug} />}
     </SidebarProvider>
   );
 }

@@ -26,9 +26,7 @@ function SummaryTab({ data }: { data: ChatDebugInfo }) {
             {key}
           </div>
           <pre className="text-[11px] text-gray-300 font-mono whitespace-pre-wrap break-all leading-relaxed">
-            {typeof value === "string"
-              ? value
-              : JSON.stringify(value, null, 2)}
+            {typeof value === "string" ? value : JSON.stringify(value, null, 2)}
           </pre>
         </div>
       ))}
@@ -121,12 +119,14 @@ export function DebugPanel({ data }: { data: ChatDebugInfo }) {
           </span>
           {/* Tabs */}
           <div className="flex gap-0.5 rounded-md bg-gray-900 p-0.5">
-            {([
-              ["summary", "Summary"],
-              ["claude", "Claude Code"],
-              ["state", "Parsed"],
-              ["raw", "Raw WS"],
-            ] as const).map(([t, label]) => (
+            {(
+              [
+                ["summary", "Summary"],
+                ["claude", "Claude Code"],
+                ["state", "Parsed"],
+                ["raw", "Raw WS"],
+              ] as const
+            ).map(([t, label]) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -161,7 +161,10 @@ export function DebugPanel({ data }: { data: ChatDebugInfo }) {
         {tab === "summary" ? (
           <SummaryTab data={data} />
         ) : tab === "claude" ? (
-          <FilterableJsonTab items={data.debugEvents} label="stream-json events" />
+          <FilterableJsonTab
+            items={data.debugEvents}
+            label="stream-json events"
+          />
         ) : tab === "state" ? (
           <FilterableJsonTab items={data.messages} label="messages" />
         ) : (

@@ -104,13 +104,18 @@ function basename(path: string): string {
 
 // ── Content renderers ──────────────────────────────────────────────
 
-function TextContent({ text, collapsible = true }: { text: string; collapsible?: boolean }) {
+function TextContent({
+  text,
+  collapsible = true,
+}: {
+  text: string;
+  collapsible?: boolean;
+}) {
   const [expanded, setExpanded] = useState(false);
   const lines = text.split("\n");
   const isLong = collapsible && lines.length > MAX_LINES_COLLAPSED;
-  const displayText = expanded || !isLong
-    ? text
-    : lines.slice(0, MAX_LINES_COLLAPSED).join("\n");
+  const displayText =
+    expanded || !isLong ? text : lines.slice(0, MAX_LINES_COLLAPSED).join("\n");
 
   return (
     <div className={cn(!expanded && isLong && "relative")}>
@@ -212,8 +217,10 @@ function DiffContent({
             key={`${i}-${line.type}`}
             className={cn(
               "px-3 leading-relaxed",
-              line.type === "add" && "bg-green-500/10 text-green-700 dark:text-green-400",
-              line.type === "remove" && "bg-red-500/10 text-red-700 dark:text-red-400 line-through opacity-70",
+              line.type === "add" &&
+                "bg-green-500/10 text-green-700 dark:text-green-400",
+              line.type === "remove" &&
+                "bg-red-500/10 text-red-700 dark:text-red-400 line-through opacity-70",
               line.type === "context" && "text-muted-foreground",
             )}
           >
@@ -316,9 +323,7 @@ const MAX_LINES_COLLAPSED = 20;
 function ReadToolDisplay({ part }: { part: ToolPart }) {
   const [expanded, setExpanded] = useState(false);
   const filePath =
-    (part.input.file_path as string) ??
-    part.locations[0]?.path ??
-    "";
+    (part.input.file_path as string) ?? part.locations[0]?.path ?? "";
   const textContent = extractText(part.content);
   const lang = filePath ? langFromPath(filePath) : ("text" as BundledLanguage);
   const isDone = part.state === "completed";
@@ -348,7 +353,9 @@ function ReadToolDisplay({ part }: { part: ToolPart }) {
             <CodeBlockHeader>
               <CodeBlockTitle>
                 <CodeBlockFilename>{basename(filePath)}</CodeBlockFilename>
-                <span className="text-muted-foreground/60">{textContent.split("\n").length} lines</span>
+                <span className="text-muted-foreground/60">
+                  {textContent.split("\n").length} lines
+                </span>
               </CodeBlockTitle>
               <CodeBlockActions>
                 <CodeBlockCopyButton />
@@ -380,9 +387,7 @@ function EditToolDisplay({ part }: { part: ToolPart }) {
   // Fallback: show text content if no diffs
   const textContent = extractText(part.content);
   const filePath =
-    (part.input.file_path as string) ??
-    part.locations[0]?.path ??
-    "";
+    (part.input.file_path as string) ?? part.locations[0]?.path ?? "";
 
   return (
     <ToolShell part={part}>
@@ -463,14 +468,11 @@ function SearchToolDisplay({ part }: { part: ToolPart }) {
 
 function ThinkToolDisplay({ part }: { part: ToolPart }) {
   const prompt = (part.input.prompt as string) ?? "";
-  const description =
-    (part.input.description as string) ?? part.title ?? "";
+  const description = (part.input.description as string) ?? part.title ?? "";
 
   return (
     <ToolShell part={part}>
-      {description && (
-        <p className="text-sm text-foreground">{description}</p>
-      )}
+      {description && <p className="text-sm text-foreground">{description}</p>}
       {prompt && (
         <pre className="whitespace-pre-wrap break-words text-xs text-muted-foreground font-mono p-3 overflow-auto max-h-40 rounded-md border bg-muted/30">
           {prompt}
@@ -491,9 +493,7 @@ function AgentToolDisplay({ part }: { part: ToolPart }) {
 
   return (
     <ToolShell part={part}>
-      {description && (
-        <p className="text-sm text-foreground">{description}</p>
-      )}
+      {description && <p className="text-sm text-foreground">{description}</p>}
       {subagentType && (
         <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-2 py-0.5 text-[10px] font-medium text-indigo-500 w-fit">
           {subagentType}
@@ -505,10 +505,12 @@ function AgentToolDisplay({ part }: { part: ToolPart }) {
           onClick={() => setExpanded((e) => !e)}
           className="text-left w-full"
         >
-          <pre className={cn(
-            "whitespace-pre-wrap break-words text-xs text-muted-foreground font-mono p-3 overflow-auto rounded-md border bg-muted/30",
-            !expanded && "max-h-16",
-          )}>
+          <pre
+            className={cn(
+              "whitespace-pre-wrap break-words text-xs text-muted-foreground font-mono p-3 overflow-auto rounded-md border bg-muted/30",
+              !expanded && "max-h-16",
+            )}
+          >
             {prompt}
           </pre>
           {!expanded && prompt.split("\n").length > 3 && (
@@ -519,14 +521,20 @@ function AgentToolDisplay({ part }: { part: ToolPart }) {
         </button>
       )}
       {(isDone || isFailed) && textContent && (
-        <div className={cn(
-          "rounded-md border overflow-hidden",
-          isFailed && "border-destructive/30",
-        )}>
-          <div className={cn(
-            "px-3 py-1.5 text-xs font-medium border-b",
-            isFailed ? "bg-destructive/10 text-destructive" : "bg-muted/80 text-muted-foreground",
-          )}>
+        <div
+          className={cn(
+            "rounded-md border overflow-hidden",
+            isFailed && "border-destructive/30",
+          )}
+        >
+          <div
+            className={cn(
+              "px-3 py-1.5 text-xs font-medium border-b",
+              isFailed
+                ? "bg-destructive/10 text-destructive"
+                : "bg-muted/80 text-muted-foreground",
+            )}
+          >
             {isFailed ? "Error" : "Result"}
           </div>
           <TextContent text={textContent} />
@@ -569,12 +577,12 @@ function ToolShell({
     >
       <div className="flex items-center gap-2 px-3 py-2 text-sm">
         {getKindIcon(part.kind)}
-        <span className="font-medium truncate">{part.title || part.toolName}</span>
+        <span className="font-medium truncate">
+          {part.title || part.toolName}
+        </span>
         <ToolStatusIndicator state={part.state} />
       </div>
-      {children && (
-        <div className="px-3 pb-3 space-y-2">{children}</div>
-      )}
+      {children && <div className="px-3 pb-3 space-y-2">{children}</div>}
     </div>
   );
 }
