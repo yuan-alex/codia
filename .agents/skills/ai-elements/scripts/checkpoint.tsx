@@ -1,5 +1,7 @@
 "use client";
 
+import { nanoid } from "nanoid";
+import { Fragment, memo, useCallback, useState } from "react";
 import {
   Checkpoint,
   CheckpointIcon,
@@ -14,13 +16,11 @@ import {
   MessageContent,
   MessageResponse,
 } from "@/components/ai-elements/message";
-import { nanoid } from "nanoid";
-import { Fragment, memo, useCallback, useState } from "react";
 
 interface MessageType {
+  content: string;
   id: string;
   role: "user" | "assistant";
-  content: string;
 }
 
 const initialMessages: MessageType[] = [
@@ -51,7 +51,7 @@ const CheckpointItem = memo(
   ({ checkpoint, onRestore }: CheckpointItemProps) => {
     const handleClick = useCallback(
       () => onRestore(checkpoint.messageCount),
-      [onRestore, checkpoint.messageCount],
+      [onRestore, checkpoint.messageCount]
     );
     return (
       <Checkpoint>
@@ -64,7 +64,7 @@ const CheckpointItem = memo(
         </CheckpointTrigger>
       </Checkpoint>
     );
-  },
+  }
 );
 
 CheckpointItem.displayName = "CheckpointItem";
@@ -85,7 +85,7 @@ const Example = () => {
         <ConversationContent>
           {messages.map((message, index) => {
             const checkpoint = checkpoints.find(
-              (cp) => cp.messageCount === index + 1,
+              (cp) => cp.messageCount === index + 1
             );
 
             return (

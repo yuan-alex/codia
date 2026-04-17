@@ -1,18 +1,19 @@
-import { useState, useEffect, useCallback } from "react";
-
-import { ChatInner, type ChatDebugInfo } from "./components/chat-inner";
-import { DebugPanel } from "./components/debug-panel";
-import { AppSidebar } from "./components/app-sidebar";
+import { useCallback, useEffect, useState } from "react";
 import {
-  SidebarProvider,
   SidebarInset,
+  SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { AppSidebar } from "./components/app-sidebar";
+import { type ChatDebugInfo, ChatInner } from "./components/chat-inner";
+import { DebugPanel } from "./components/debug-panel";
 
 function useTheme() {
   const [isDark, setIsDark] = useState(() => {
     const stored = localStorage.getItem("theme");
-    if (stored) return stored === "dark";
+    if (stored) {
+      return stored === "dark";
+    }
     return document.documentElement.classList.contains("dark");
   });
 
@@ -47,7 +48,7 @@ function setSessionIdInUrl(sessionId: string | null) {
 export default function App() {
   const { isDark, toggle: toggleTheme } = useTheme();
   const [activeSessionId, setActiveSessionId] = useState<string | null>(
-    getSessionIdFromUrl,
+    getSessionIdFromUrl
   );
   const [newSessionKey, setNewSessionKey] = useState(0);
   const [chatDebug, setChatDebug] = useState<ChatDebugInfo | null>(null);
@@ -69,7 +70,7 @@ export default function App() {
   }, []);
 
   return (
-    <SidebarProvider className="h-svh !min-h-0">
+    <SidebarProvider className="!min-h-0 h-svh">
       <AppSidebar
         activeSessionId={activeSessionId}
         isDark={isDark}
@@ -81,12 +82,12 @@ export default function App() {
         <header className="flex h-11 shrink-0 items-center gap-2 px-3">
           <SidebarTrigger className="-ml-1" />
         </header>
-        <div className="flex-1 min-h-0">
+        <div className="min-h-0 flex-1">
           <ChatInner
             key={activeSessionId ?? `new-${newSessionKey}`}
-            sessionId={activeSessionId}
-            onSessionReady={handleSessionReady}
             onDebugInfo={import.meta.env.DEV ? setChatDebug : undefined}
+            onSessionReady={handleSessionReady}
+            sessionId={activeSessionId}
           />
         </div>
       </SidebarInset>

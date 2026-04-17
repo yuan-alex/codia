@@ -1,12 +1,12 @@
 "use client";
 
+import { nanoid } from "nanoid";
 import {
   Tool,
   ToolContent,
   ToolHeader,
   ToolInput,
 } from "@/components/ai-elements/tool";
-import { nanoid } from "nanoid";
 
 const toolCall = {
   errorText: undefined,

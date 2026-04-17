@@ -1,6 +1,13 @@
 "use client";
 
 import {
+  CopyIcon,
+  DownloadIcon,
+  PlayIcon,
+  RefreshCwIcon,
+  ShareIcon,
+} from "lucide-react";
+import {
   Artifact,
   ArtifactAction,
   ArtifactActions,
@@ -10,13 +17,6 @@ import {
   ArtifactTitle,
 } from "@/components/ai-elements/artifact";
 import { CodeBlock } from "@/components/ai-elements/code-block";
-import {
-  CopyIcon,
-  DownloadIcon,
-  PlayIcon,
-  RefreshCwIcon,
-  ShareIcon,
-} from "lucide-react";
 
 const handleRun = () => {
   console.log("Run");

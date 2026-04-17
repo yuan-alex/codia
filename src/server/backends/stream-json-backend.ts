@@ -36,33 +36,33 @@ export type PermissionMode =
 
 const DEFAULT_PERMISSION_MODE: PermissionMode = "acceptEdits";
 
-type TurnDeferred = {
-  ws: ServerWebSocket<any>;
-  state: PromptState;
-  resolve: (r: PromptResult) => void;
+interface TurnDeferred {
   reject: (e: Error) => void;
-};
+  resolve: (r: PromptResult) => void;
+  state: PromptState;
+  ws: ServerWebSocket<unknown>;
+}
 
-type Session = {
-  id: string;
+interface Session {
   claudeSessionId: string | null;
-  title: string | null;
   createdAt: number;
-  model: string;
+  currentTurn: TurnDeferred | null;
   effort: EffortLevel;
+  id: string;
+  model: string;
   permissionMode: PermissionMode;
   /** Live Claude subprocess for this session (`stdin` is a Bun FileSink for NDJSON turns). */
   proc: ReturnType<typeof Bun.spawn> | null;
   /** Matches last spawned process: model|permission|effort (not claudeSessionId — that appears after init). */
   spawnKey: string;
-  currentTurn: TurnDeferred | null;
-};
+  title: string | null;
+}
 
-type PromptState = {
-  sentTextLen: Map<string, number>;
-  seenToolCallIds: Set<string>;
+interface PromptState {
   result: PromptResult;
-};
+  seenToolCallIds: Set<string>;
+  sentTextLen: Map<string, number>;
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
@@ -93,7 +93,7 @@ function buildClaudeArgs(session: Session): string[] {
 }
 
 function mapToolKind(
-  name: string,
+  name: string
 ): "read" | "edit" | "search" | "execute" | "agent" | "other" {
   switch (name) {
     case "Read":
@@ -142,16 +142,18 @@ function formatToolTitle(name: string, input: Record<string, unknown>): string {
 
 /** Emit a text or thinking delta, tracking cumulative length to avoid re-sending. */
 function emitDelta(
-  ws: ServerWebSocket<any>,
+  ws: ServerWebSocket<unknown>,
   sentTextLen: Map<string, number>,
   msgId: string,
   kind: "text" | "thinking",
-  fullText: string,
+  fullText: string
 ) {
   const key = `${msgId}:${kind}`;
   const sent = sentTextLen.get(key) ?? 0;
   const delta = fullText.slice(sent);
-  if (!delta) return;
+  if (!delta) {
+    return;
+  }
   sentTextLen.set(key, fullText.length);
   sendUpdate(ws, {
     sessionUpdate:
@@ -172,8 +174,7 @@ function buildToolResultContent(entry: any, block: any): unknown[] {
 
   // If we have structured edit result data, emit a diff block
   if (
-    tur &&
-    tur.filePath &&
+    tur?.filePath &&
     (tur.newString != null || tur.oldString != null || tur.structuredPatch)
   ) {
     const content: unknown[] = [
@@ -230,14 +231,18 @@ async function extractTitle(filePath: string): Promise<string | undefined> {
 
   for (let i = 0; i < limit; i++) {
     const line = lines[i]?.trim();
-    if (!line) continue;
+    if (!line) {
+      continue;
+    }
     let obj: any;
     try {
       obj = JSON.parse(line);
     } catch {
       continue;
     }
-    if (obj.type !== "user" || obj.isMeta) continue;
+    if (obj.type !== "user" || obj.isMeta) {
+      continue;
+    }
 
     const content = obj.message?.content;
     if (
@@ -258,15 +263,17 @@ async function extractTitle(filePath: string): Promise<string | undefined> {
       }
     }
   }
-  return undefined;
+  return;
 }
 
 // ── Stream-JSON Backend ───────────────────────────────────────────────
 
 export class StreamJsonBackend implements Backend {
-  private sessions = new Map<string, Session>();
+  private readonly sessions = new Map<string, Session>();
 
-  async handleNewSession(_ws: ServerWebSocket<any>): Promise<SessionResult> {
+  async handleNewSession(
+    _ws: ServerWebSocket<unknown>
+  ): Promise<SessionResult> {
     const session: Session = {
       id: crypto.randomUUID(),
       claudeSessionId: null,
@@ -289,8 +296,8 @@ export class StreamJsonBackend implements Backend {
   }
 
   async handleLoadSession(
-    ws: ServerWebSocket<any>,
-    sessionId: string,
+    ws: ServerWebSocket<unknown>,
+    sessionId: string
   ): Promise<SessionResult> {
     let session = this.sessions.get(sessionId);
 
@@ -299,7 +306,9 @@ export class StreamJsonBackend implements Backend {
     const fileExists = await file.exists();
 
     if (!session) {
-      if (!fileExists) throw new Error(`Session ${sessionId} not found`);
+      if (!fileExists) {
+        throw new Error(`Session ${sessionId} not found`);
+      }
 
       const title = await extractTitle(filePath).catch(() => null);
       session = {
@@ -331,12 +340,14 @@ export class StreamJsonBackend implements Backend {
   }
 
   /** Parse on-disk JSONL and send user/assistant text as replay updates. */
-  private replayHistory(ws: ServerWebSocket<any>, filePath: string) {
+  private replayHistory(ws: ServerWebSocket<unknown>, filePath: string) {
     const raw = readFileSync(filePath, "utf-8") as string;
     const lines = raw.split("\n");
 
     for (const line of lines) {
-      if (!line.trim()) continue;
+      if (!line.trim()) {
+        continue;
+      }
       let entry: any;
       try {
         entry = JSON.parse(line);
@@ -345,7 +356,9 @@ export class StreamJsonBackend implements Backend {
       }
 
       if (entry.type === "user") {
-        if (entry.isMeta) continue;
+        if (entry.isMeta) {
+          continue;
+        }
         const content = entry.message?.content;
 
         const promptId = entry.promptId ?? null;
@@ -356,8 +369,9 @@ export class StreamJsonBackend implements Backend {
             content.includes("<command-name>") ||
             content.includes("<local-command") ||
             content.includes("<system-reminder>")
-          )
+          ) {
             continue;
+          }
           sendUpdate(ws, {
             sessionUpdate: "user_message_chunk",
             messageId: promptId,
@@ -374,8 +388,9 @@ export class StreamJsonBackend implements Backend {
                 block.text.includes("<command-name>") ||
                 block.text.includes("<local-command") ||
                 block.text.includes("<system-reminder>")
-              )
+              ) {
                 continue;
+              }
               sendUpdate(ws, {
                 sessionUpdate: "user_message_chunk",
                 messageId: promptId,
@@ -396,7 +411,9 @@ export class StreamJsonBackend implements Backend {
 
       if (entry.type === "assistant") {
         const content = entry.message?.content;
-        if (!Array.isArray(content)) continue;
+        if (!Array.isArray(content)) {
+          continue;
+        }
 
         for (const block of content) {
           if (block.type === "text" && block.text) {
@@ -456,7 +473,7 @@ export class StreamJsonBackend implements Backend {
    */
   private async teardownSessionProcess(
     session: Session,
-    opts: { rejectTurn?: boolean; reason?: string } = {},
+    opts: { rejectTurn?: boolean; reason?: string } = {}
   ): Promise<void> {
     const rejectTurn = opts.rejectTurn ?? true;
     const reason = opts.reason ?? "Session process torn down";
@@ -498,7 +515,7 @@ export class StreamJsonBackend implements Backend {
     const args = buildClaudeArgs(session);
     console.log(
       "[claude] spawning:",
-      ["claude", ...args].join(" ").slice(0, 160),
+      ["claude", ...args].join(" ").slice(0, 160)
     );
 
     const proc = Bun.spawn(["claude", ...args], {
@@ -515,9 +532,13 @@ export class StreamJsonBackend implements Backend {
     void (async () => {
       try {
         for await (const chunk of proc.stderr) {
-          if (session.proc !== proc) break;
+          if (session.proc !== proc) {
+            break;
+          }
           const t = new TextDecoder().decode(chunk).trim();
-          if (t) console.error("[claude] stderr:", t);
+          if (t) {
+            console.error("[claude] stderr:", t);
+          }
         }
       } catch {
         // ignore
@@ -529,10 +550,12 @@ export class StreamJsonBackend implements Backend {
 
   private async runStdoutReader(
     session: Session,
-    proc: ReturnType<typeof Bun.spawn>,
+    proc: ReturnType<typeof Bun.spawn>
   ): Promise<void> {
     const stdout = proc.stdout;
-    if (!stdout) return;
+    if (!stdout) {
+      return;
+    }
 
     const reader = stdout.getReader();
     const decoder = new TextDecoder();
@@ -540,9 +563,13 @@ export class StreamJsonBackend implements Backend {
 
     try {
       while (true) {
-        if (session.proc !== proc) break;
+        if (session.proc !== proc) {
+          break;
+        }
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          break;
+        }
         buf += decoder.decode(value, { stream: true });
 
         let idx = buf.indexOf("\n");
@@ -620,7 +647,7 @@ export class StreamJsonBackend implements Backend {
 
   private async writeUserMessage(
     session: Session,
-    text: string,
+    text: string
   ): Promise<void> {
     const stdin = session.proc?.stdin;
     if (!stdin || typeof stdin.write !== "function") {
@@ -634,14 +661,18 @@ export class StreamJsonBackend implements Backend {
   }
 
   async handlePrompt(
-    ws: ServerWebSocket<any>,
+    ws: ServerWebSocket<unknown>,
     sessionId: string,
-    text: string,
+    text: string
   ): Promise<PromptResult> {
     const session = this.sessions.get(sessionId);
-    if (!session) throw new Error(`Session ${sessionId} not found`);
+    if (!session) {
+      throw new Error(`Session ${sessionId} not found`);
+    }
 
-    if (!session.title) session.title = text.slice(0, 80);
+    if (!session.title) {
+      session.title = text.slice(0, 80);
+    }
 
     const state: PromptState = {
       sentTextLen: new Map(),
@@ -669,10 +700,10 @@ export class StreamJsonBackend implements Backend {
   }
 
   private processEvent(
-    ws: ServerWebSocket<any>,
+    ws: ServerWebSocket<unknown>,
     session: Session,
     event: any,
-    state: PromptState,
+    state: PromptState
   ) {
     switch (event.type) {
       case "system": {
@@ -743,7 +774,7 @@ export class StreamJsonBackend implements Backend {
             const isPermissionDenial =
               block.is_error &&
               extractToolResultText(block).includes(
-                "Claude requested permissions",
+                "Claude requested permissions"
               );
             sendUpdate(ws, {
               sessionUpdate: "tool_call_update",
@@ -776,7 +807,7 @@ export class StreamJsonBackend implements Backend {
             (d: any) => ({
               toolName: d.tool_name as string,
               toolUseId: d.tool_use_id as string,
-            }),
+            })
           );
         }
         break;
@@ -788,17 +819,16 @@ export class StreamJsonBackend implements Backend {
     const session = this.sessions.get(sessionId);
     const proc = session?.proc;
     const stdin = proc?.stdin;
-    if (!proc || !stdin || typeof stdin.write !== "function") {
+    if (!(proc && stdin) || typeof stdin.write !== "function") {
       proc?.kill();
       return;
     }
 
-    const line =
-      JSON.stringify({
-        type: "control_request",
-        request_id: crypto.randomUUID(),
-        request: { subtype: "interrupt" },
-      }) + "\n";
+    const line = `${JSON.stringify({
+      type: "control_request",
+      request_id: crypto.randomUUID(),
+      request: { subtype: "interrupt" },
+    })}\n`;
 
     try {
       stdin.write(textEncoder.encode(`${line}\n`));
@@ -813,27 +843,33 @@ export class StreamJsonBackend implements Backend {
 
   async handleSetModel(sessionId: string, modelId: string): Promise<string> {
     const session = this.sessions.get(sessionId);
-    if (!session) throw new Error(`Session ${sessionId} not found`);
+    if (!session) {
+      throw new Error(`Session ${sessionId} not found`);
+    }
     session.model = modelId;
     return modelId;
   }
 
   async handleSetEffort(
     sessionId: string,
-    effort: EffortLevel,
+    effort: EffortLevel
   ): Promise<EffortLevel> {
     const session = this.sessions.get(sessionId);
-    if (!session) throw new Error(`Session ${sessionId} not found`);
+    if (!session) {
+      throw new Error(`Session ${sessionId} not found`);
+    }
     session.effort = effort;
     return effort;
   }
 
   async handleSetPermissionMode(
     sessionId: string,
-    permissionMode: PermissionMode,
+    permissionMode: PermissionMode
   ): Promise<PermissionMode> {
     const session = this.sessions.get(sessionId);
-    if (!session) throw new Error(`Session ${sessionId} not found`);
+    if (!session) {
+      throw new Error(`Session ${sessionId} not found`);
+    }
     session.permissionMode = permissionMode;
     return permissionMode;
   }
@@ -852,7 +888,7 @@ export class StreamJsonBackend implements Backend {
           title: s.title ?? undefined,
           lastUpdated: fileStat?.mtime.toISOString(),
         } as SessionListItem;
-      }),
+      })
     );
 
     // Scan on-disk Claude Code sessions for this project
@@ -864,21 +900,25 @@ export class StreamJsonBackend implements Backend {
       const results = await Promise.all(
         jsonlFiles.map(async (filename) => {
           const sessionId = filename.replace(".jsonl", "");
-          if (inMemoryIds.has(sessionId)) return null; // already tracked
+          if (inMemoryIds.has(sessionId)) {
+            return null; // already tracked
+          }
 
           const filePath = join(dir, filename);
           const [title, fileStat] = await Promise.all([
             extractTitle(filePath).catch(() => undefined),
             stat(filePath).catch(() => null),
           ]);
-          if (!fileStat) return null;
+          if (!fileStat) {
+            return null;
+          }
 
           return {
             sessionId,
             title,
             lastUpdated: fileStat.mtime.toISOString(),
           } as SessionListItem;
-        }),
+        })
       );
 
       diskSessions = results.filter((r): r is SessionListItem => r !== null);
@@ -888,7 +928,7 @@ export class StreamJsonBackend implements Backend {
 
     const all = [...inMemory, ...diskSessions];
     all.sort((a, b) =>
-      (b.lastUpdated ?? "").localeCompare(a.lastUpdated ?? ""),
+      (b.lastUpdated ?? "").localeCompare(a.lastUpdated ?? "")
     );
     return all.slice(0, 50);
   }

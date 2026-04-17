@@ -1,5 +1,7 @@
 "use client";
 
+import { CheckIcon, GlobeIcon, Trash2 } from "lucide-react";
+import { memo, useCallback, useRef, useState } from "react";
 import {
   Attachment,
   AttachmentPreview,
@@ -47,8 +49,6 @@ import {
   QueueSection,
   QueueSectionContent,
 } from "@/components/ai-elements/queue";
-import { CheckIcon, GlobeIcon, Trash2 } from "lucide-react";
-import { memo, useCallback, useRef, useState } from "react";
 
 const models = [
   {
@@ -105,7 +105,7 @@ interface AttachmentItemProps {
 const AttachmentItem = memo(({ attachment, onRemove }: AttachmentItemProps) => {
   const handleRemove = useCallback(
     () => onRemove(attachment.id),
-    [onRemove, attachment.id],
+    [onRemove, attachment.id]
   );
   return (
     <Attachment data={attachment} key={attachment.id} onRemove={handleRemove}>
@@ -118,15 +118,15 @@ const AttachmentItem = memo(({ attachment, onRemove }: AttachmentItemProps) => {
 AttachmentItem.displayName = "AttachmentItem";
 
 interface TodoItemProps {
-  todo: QueueTodo;
   onRemove: (id: string) => void;
+  todo: QueueTodo;
 }
 
 const TodoItem = memo(({ todo, onRemove }: TodoItemProps) => {
   const isCompleted = todo.status === "completed";
   const handleRemove = useCallback(
     () => onRemove(todo.id),
-    [onRemove, todo.id],
+    [onRemove, todo.id]
   );
 
   return (
@@ -155,8 +155,8 @@ TodoItem.displayName = "TodoItem";
 
 interface ModelItemProps {
   m: (typeof models)[0];
-  selectedModel: string;
   onSelect: (id: string) => void;
+  selectedModel: string;
 }
 
 const ModelItem = memo(({ m, selectedModel, onSelect }: ModelItemProps) => {
@@ -218,7 +218,7 @@ const PromptInputAttachmentsDisplay = () => {
 
   const handleRemove = useCallback(
     (id: string) => attachments.remove(id),
-    [attachments],
+    [attachments]
   );
 
   if (attachments.files.length === 0) {
@@ -255,7 +255,7 @@ const Example = () => {
 
   const handleTextChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => setText(e.target.value),
-    [],
+    []
   );
 
   const handleModelSelect = useCallback((id: string) => {
@@ -265,7 +265,7 @@ const Example = () => {
 
   const selectedModelData = models.find((m) => m.id === model);
 
-  const stop = () => {
+  const stop = useCallback(() => {
     console.log("Stopping request...");
 
     // Clear any pending timeouts
@@ -275,7 +275,7 @@ const Example = () => {
     }
 
     setStatus("ready");
-  };
+  }, []);
 
   const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
@@ -305,7 +305,7 @@ const Example = () => {
         timeoutRef.current = null;
       }, STREAMING_TIMEOUT);
     },
-    [status],
+    [status, stop]
   );
 
   return (

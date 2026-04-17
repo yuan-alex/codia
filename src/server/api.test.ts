@@ -1,4 +1,4 @@
-import { test, expect, describe, beforeAll, afterAll } from "bun:test";
+import { describe, expect, test } from "bun:test";
 
 const BASE = "http://localhost:1337";
 
@@ -100,7 +100,7 @@ describe("API", () => {
     // Log a summary
     const roles = data.history.map((m: any) => m.role);
     const partTypes = data.history.flatMap((m: any) =>
-      m.parts.map((p: any) => p.type),
+      m.parts.map((p: any) => p.type)
     );
     console.log(`  Roles: ${roles.join(", ")}`);
     console.log(`  Part types: ${[...new Set(partTypes)].join(", ")}`);

@@ -1,12 +1,14 @@
-import { config } from "./config";
+import type { ServerWebSocket } from "bun";
+import type { PermissionMode } from "./backends/stream-json-backend";
 import { StreamJsonBackend } from "./backends/stream-json-backend";
-import { sendJson, type Backend } from "./backends/types";
+import { type Backend, sendJson } from "./backends/types";
+import { config } from "./config";
 
 // ── Per-connection state ───────────────────────────────────────────────
 
-type WsData = {
+interface WsData {
   sessionId: string | null;
-};
+}
 
 // ── Backend ────────────────────────────────────────────────────────────
 
@@ -17,7 +19,21 @@ const sessionBackendMap = new Map<string, Backend>();
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
-function sendError(ws: any, error: unknown) {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+/** Parsed WebSocket client message (fields depend on `type`). */
+interface WsClientMessage {
+  effort?: string;
+  modelId?: string;
+  permissionMode?: string;
+  sessionId?: string;
+  text?: string;
+  type: string;
+}
+
+function sendError(ws: ServerWebSocket<WsData>, error: unknown) {
   sendJson(ws, { type: "error", message: String(error) });
 }
 
@@ -32,7 +48,9 @@ Bun.serve<WsData>({
 
     // WebSocket upgrade
     if (url.pathname === "/ws") {
-      if (server.upgrade(req, { data: { sessionId: null } })) return;
+      if (server.upgrade(req, { data: { sessionId: null } })) {
+        return;
+      }
       return new Response("WebSocket upgrade failed", { status: 500 });
     }
 
@@ -52,19 +70,23 @@ Bun.serve<WsData>({
       const cwd = process.cwd();
       const home = process.env.HOME;
       const displayPath =
-        home && cwd.startsWith(home) ? "~" + cwd.slice(home.length) : cwd;
+        home && cwd.startsWith(home) ? `~${cwd.slice(home.length)}` : cwd;
       const basename = cwd.split("/").filter(Boolean).pop() ?? cwd;
       let branch: string | null = null;
       try {
         const proc = Bun.spawnSync(
           ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-          { cwd, stdout: "pipe", stderr: "ignore" },
+          { cwd, stdout: "pipe", stderr: "ignore" }
         );
         if (proc.exitCode === 0) {
           const out = proc.stdout.toString().trim();
-          if (out && out !== "HEAD") branch = out;
+          if (out && out !== "HEAD") {
+            branch = out;
+          }
         }
-      } catch {}
+      } catch {
+        // ignore: git may be unavailable or cwd may not be a repository
+      }
       return Response.json({ cwd, displayPath, basename, branch });
     }
 
@@ -72,18 +94,23 @@ Bun.serve<WsData>({
   },
 
   websocket: {
-    open(ws) {
+    open(_ws) {
       console.log("[ws] Client connected");
     },
 
     async message(ws, raw) {
-      let msg: any;
+      let parsed: unknown;
       try {
-        msg = JSON.parse(String(raw));
+        parsed = JSON.parse(String(raw));
       } catch {
         sendError(ws, "Invalid JSON");
         return;
       }
+      if (!(isRecord(parsed) && typeof parsed.type === "string")) {
+        sendError(ws, "Invalid message");
+        return;
+      }
+      const msg = parsed as unknown as WsClientMessage;
 
       if (msg.type === "session/new") {
         try {
@@ -104,15 +131,20 @@ Bun.serve<WsData>({
       }
 
       if (msg.type === "session/load") {
+        if (typeof msg.sessionId !== "string") {
+          sendError(ws, "session/load requires sessionId");
+          return;
+        }
+        const loadSessionId = msg.sessionId;
         const backend: Backend =
-          sessionBackendMap.get(msg.sessionId) ?? claudeBackend;
+          sessionBackendMap.get(loadSessionId) ?? claudeBackend;
         try {
-          const result = await backend.handleLoadSession(ws, msg.sessionId);
-          ws.data.sessionId = msg.sessionId;
-          sessionBackendMap.set(msg.sessionId, backend);
+          const result = await backend.handleLoadSession(ws, loadSessionId);
+          ws.data.sessionId = loadSessionId;
+          sessionBackendMap.set(loadSessionId, backend);
           sendJson(ws, {
             type: "session/ready",
-            sessionId: msg.sessionId,
+            sessionId: loadSessionId,
             models: result.models,
             currentModelId: result.currentModelId,
             currentPermissionMode: result.currentPermissionMode,
@@ -134,6 +166,10 @@ Bun.serve<WsData>({
           sendError(ws, "No backend for session");
           return;
         }
+        if (typeof msg.text !== "string") {
+          sendError(ws, "prompt requires text");
+          return;
+        }
         try {
           const result = await backend.handlePrompt(ws, sessionId, msg.text);
           sendJson(ws, {
@@ -150,9 +186,13 @@ Bun.serve<WsData>({
 
       if (msg.type === "cancel") {
         const sessionId = ws.data.sessionId;
-        if (!sessionId) return;
+        if (!sessionId) {
+          return;
+        }
         const backend = sessionBackendMap.get(sessionId);
-        if (!backend) return;
+        if (!backend) {
+          return;
+        }
         try {
           backend.handleCancel(sessionId);
         } catch (error) {
@@ -162,9 +202,16 @@ Bun.serve<WsData>({
 
       if (msg.type === "set_model") {
         const sessionId = ws.data.sessionId;
-        if (!sessionId) return;
+        if (!sessionId) {
+          return;
+        }
         const backend = sessionBackendMap.get(sessionId);
-        if (!backend?.handleSetModel) return;
+        if (!backend?.handleSetModel) {
+          return;
+        }
+        if (typeof msg.modelId !== "string") {
+          return;
+        }
         try {
           const modelId = await backend.handleSetModel(sessionId, msg.modelId);
           sendJson(ws, { type: "model/set", modelId });
@@ -176,11 +223,25 @@ Bun.serve<WsData>({
 
       if (msg.type === "set_effort") {
         const sessionId = ws.data.sessionId;
-        if (!sessionId) return;
+        if (!sessionId) {
+          return;
+        }
         const backend = sessionBackendMap.get(sessionId);
-        if (!backend?.handleSetEffort) return;
+        if (!backend?.handleSetEffort) {
+          return;
+        }
+        const effortLevel = msg.effort;
+        if (
+          effortLevel !== "off" &&
+          effortLevel !== "low" &&
+          effortLevel !== "medium" &&
+          effortLevel !== "high" &&
+          effortLevel !== "max"
+        ) {
+          return;
+        }
         try {
-          const effort = await backend.handleSetEffort(sessionId, msg.effort);
+          const effort = await backend.handleSetEffort(sessionId, effortLevel);
           sendJson(ws, { type: "effort/set", effort });
         } catch (error) {
           console.error("[ws] set_effort error:", error);
@@ -190,13 +251,29 @@ Bun.serve<WsData>({
 
       if (msg.type === "set_permission_mode") {
         const sessionId = ws.data.sessionId;
-        if (!sessionId) return;
+        if (!sessionId) {
+          return;
+        }
         const backend = sessionBackendMap.get(sessionId);
-        if (!backend?.handleSetPermissionMode) return;
+        if (!backend?.handleSetPermissionMode) {
+          return;
+        }
+        const mode = msg.permissionMode as PermissionMode | undefined;
+        const allowedModes: PermissionMode[] = [
+          "plan",
+          "default",
+          "acceptEdits",
+          "auto",
+          "dontAsk",
+          "bypassPermissions",
+        ];
+        if (!(mode && allowedModes.includes(mode))) {
+          return;
+        }
         try {
           const permissionMode = await backend.handleSetPermissionMode(
             sessionId,
-            msg.permissionMode,
+            mode
           );
           sendJson(ws, { type: "permission_mode/set", permissionMode });
         } catch (error) {
@@ -206,7 +283,7 @@ Bun.serve<WsData>({
       }
     },
 
-    close(ws) {
+    close(_ws) {
       console.log("[ws] Client disconnected");
     },
   },

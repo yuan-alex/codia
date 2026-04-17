@@ -1,14 +1,5 @@
 "use client";
 
-import type { PersonaState } from "@/components/ai-elements/persona";
-import { Persona } from "@/components/ai-elements/persona";
-import { Button } from "@/components/ui/button";
-import { ButtonGroup } from "@/components/ui/button-group";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import type { LucideIcon } from "lucide-react";
 import {
   BrainIcon,
@@ -18,18 +9,27 @@ import {
   MicIcon,
 } from "lucide-react";
 import { memo, useCallback, useState } from "react";
+import type { PersonaState } from "@/components/ai-elements/persona";
+import { Persona } from "@/components/ai-elements/persona";
+import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface StateButtonProps {
-  state: { state: PersonaState; icon: LucideIcon; label: string };
   currentState: PersonaState;
   onStateChange: (state: PersonaState) => void;
+  state: { state: PersonaState; icon: LucideIcon; label: string };
 }
 
 const StateButton = memo(
   ({ state, currentState, onStateChange }: StateButtonProps) => {
     const handleClick = useCallback(
       () => onStateChange(state.state),
-      [onStateChange, state.state],
+      [onStateChange, state.state]
     );
     return (
       <Tooltip key={state.state}>
@@ -45,7 +45,7 @@ const StateButton = memo(
         <TooltipContent>{state.label}</TooltipContent>
       </Tooltip>
     );
-  },
+  }
 );
 
 StateButton.displayName = "StateButton";

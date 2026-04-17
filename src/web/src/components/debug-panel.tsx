@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { Bug, X, Minus } from "lucide-react";
+import { Bug, Minus, X } from "lucide-react";
+import { useMemo, useState } from "react";
 import type { ChatDebugInfo } from "./chat-inner";
 
 type Tab = "summary" | "state" | "raw" | "claude";
@@ -15,17 +15,17 @@ function SummaryTab({ data }: { data: ChatDebugInfo }) {
       lastMessageRole: data.lastMessageRole ?? "none",
       models: data.models,
     }),
-    [data],
+    [data]
   );
 
   return (
     <div className="space-y-2">
       {Object.entries(summaryEntries).map(([key, value]) => (
         <div key={key}>
-          <div className="text-[10px] font-medium text-yellow-500/70 uppercase tracking-wider mb-0.5">
+          <div className="mb-0.5 font-medium text-[10px] text-yellow-500/70 uppercase tracking-wider">
             {key}
           </div>
-          <pre className="text-[11px] text-gray-300 font-mono whitespace-pre-wrap break-all leading-relaxed">
+          <pre className="whitespace-pre-wrap break-all font-mono text-[11px] text-gray-300 leading-relaxed">
             {typeof value === "string" ? value : JSON.stringify(value, null, 2)}
           </pre>
         </div>
@@ -44,7 +44,9 @@ function FilterableJsonTab({
   const [filter, setFilter] = useState("");
 
   const filtered = useMemo(() => {
-    if (!filter) return items;
+    if (!filter) {
+      return items;
+    }
     const lower = filter.toLowerCase();
     return items.filter((item) => {
       const json = JSON.stringify(item).toLowerCase();
@@ -55,20 +57,35 @@ function FilterableJsonTab({
   return (
     <div className="space-y-2">
       <input
-        type="text"
-        placeholder={`Filter ${label}...`}
-        value={filter}
+        className="w-full rounded border border-yellow-500/20 bg-gray-900 px-2 py-1 font-mono text-[11px] text-gray-300 placeholder:text-gray-600 focus:border-yellow-500/40 focus:outline-none"
         onChange={(e) => setFilter(e.target.value)}
-        className="w-full rounded border border-yellow-500/20 bg-gray-900 px-2 py-1 text-[11px] text-gray-300 font-mono placeholder:text-gray-600 focus:border-yellow-500/40 focus:outline-none"
+        placeholder={`Filter ${label}...`}
+        type="text"
+        value={filter}
       />
       <div className="text-[10px] text-gray-500">
         {filtered.length} / {items.length} {label}
       </div>
-      <pre className="text-[11px] text-gray-300 font-mono whitespace-pre-wrap break-all leading-relaxed">
+      <pre className="whitespace-pre-wrap break-all font-mono text-[11px] text-gray-300 leading-relaxed">
         {JSON.stringify(filtered, null, 2)}
       </pre>
     </div>
   );
+}
+
+function debugTabContent(tab: Tab, data: ChatDebugInfo) {
+  if (tab === "summary") {
+    return <SummaryTab data={data} />;
+  }
+  if (tab === "claude") {
+    return (
+      <FilterableJsonTab items={data.debugEvents} label="stream-json events" />
+    );
+  }
+  if (tab === "state") {
+    return <FilterableJsonTab items={data.messages} label="messages" />;
+  }
+  return <FilterableJsonTab items={data.rawMessages} label="ws messages" />;
 }
 
 export function DebugPanel({ data }: { data: ChatDebugInfo }) {
@@ -79,8 +96,9 @@ export function DebugPanel({ data }: { data: ChatDebugInfo }) {
   if (!open) {
     return (
       <button
+        className="fixed right-4 bottom-4 z-50 flex items-center gap-1.5 rounded-full bg-yellow-500 px-3 py-1.5 font-medium text-black text-xs shadow-lg transition-colors hover:bg-yellow-400"
         onClick={() => setOpen(true)}
-        className="fixed bottom-4 right-4 z-50 flex items-center gap-1.5 rounded-full bg-yellow-500 px-3 py-1.5 text-xs font-medium text-black shadow-lg hover:bg-yellow-400 transition-colors"
+        type="button"
       >
         <Bug className="size-3.5" />
         Debug
@@ -90,17 +108,19 @@ export function DebugPanel({ data }: { data: ChatDebugInfo }) {
 
   if (minimized) {
     return (
-      <div className="fixed bottom-4 right-4 z-50 flex items-center gap-1 rounded-lg border border-yellow-500/30 bg-black/90 px-2 py-1 shadow-lg backdrop-blur">
-        <span className="text-[10px] font-medium text-yellow-500">DEBUG</span>
+      <div className="fixed right-4 bottom-4 z-50 flex items-center gap-1 rounded-lg border border-yellow-500/30 bg-black/90 px-2 py-1 shadow-lg backdrop-blur">
+        <span className="font-medium text-[10px] text-yellow-500">DEBUG</span>
         <button
-          onClick={() => setMinimized(false)}
           className="p-0.5 text-yellow-500/70 hover:text-yellow-500"
+          onClick={() => setMinimized(false)}
+          type="button"
         >
           <Bug className="size-3" />
         </button>
         <button
-          onClick={() => setOpen(false)}
           className="p-0.5 text-yellow-500/70 hover:text-yellow-500"
+          onClick={() => setOpen(false)}
+          type="button"
         >
           <X className="size-3" />
         </button>
@@ -109,11 +129,11 @@ export function DebugPanel({ data }: { data: ChatDebugInfo }) {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-[560px] max-h-[70vh] flex flex-col rounded-lg border border-yellow-500/30 bg-black/95 shadow-lg backdrop-blur overflow-hidden">
+    <div className="fixed right-4 bottom-4 z-50 flex max-h-[70vh] w-[560px] flex-col overflow-hidden rounded-lg border border-yellow-500/30 bg-black/95 shadow-lg backdrop-blur">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-yellow-500/20">
+      <div className="flex items-center justify-between border-yellow-500/20 border-b px-3 py-2">
         <div className="flex items-center gap-3">
-          <span className="text-xs font-semibold text-yellow-500 flex items-center gap-1.5">
+          <span className="flex items-center gap-1.5 font-semibold text-xs text-yellow-500">
             <Bug className="size-3.5" />
             Debug
           </span>
@@ -128,13 +148,14 @@ export function DebugPanel({ data }: { data: ChatDebugInfo }) {
               ] as const
             ).map(([t, label]) => (
               <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={`px-2 py-0.5 text-[10px] font-medium rounded transition-colors ${
+                className={`rounded px-2 py-0.5 font-medium text-[10px] transition-colors ${
                   tab === t
                     ? "bg-yellow-500/20 text-yellow-500"
                     : "text-gray-500 hover:text-gray-300"
                 }`}
+                key={t}
+                onClick={() => setTab(t)}
+                type="button"
               >
                 {label}
               </button>
@@ -143,14 +164,16 @@ export function DebugPanel({ data }: { data: ChatDebugInfo }) {
         </div>
         <div className="flex gap-1">
           <button
-            onClick={() => setMinimized(true)}
             className="p-0.5 text-yellow-500/70 hover:text-yellow-500"
+            onClick={() => setMinimized(true)}
+            type="button"
           >
             <Minus className="size-3.5" />
           </button>
           <button
-            onClick={() => setOpen(false)}
             className="p-0.5 text-yellow-500/70 hover:text-yellow-500"
+            onClick={() => setOpen(false)}
+            type="button"
           >
             <X className="size-3.5" />
           </button>
@@ -158,18 +181,7 @@ export function DebugPanel({ data }: { data: ChatDebugInfo }) {
       </div>
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-3">
-        {tab === "summary" ? (
-          <SummaryTab data={data} />
-        ) : tab === "claude" ? (
-          <FilterableJsonTab
-            items={data.debugEvents}
-            label="stream-json events"
-          />
-        ) : tab === "state" ? (
-          <FilterableJsonTab items={data.messages} label="messages" />
-        ) : (
-          <FilterableJsonTab items={data.rawMessages} label="ws messages" />
-        )}
+        {debugTabContent(tab, data)}
       </div>
     </div>
   );

@@ -1,12 +1,12 @@
 "use client";
 
+import { ChevronDownIcon, ExternalLinkIcon } from "lucide-react";
 import {
   Source,
   Sources,
   SourcesContent,
   SourcesTrigger,
 } from "@/components/ai-elements/sources";
-import { ChevronDownIcon, ExternalLinkIcon } from "lucide-react";
 
 const sources = [
   { href: "https://stripe.com/docs/api", title: "Stripe API Documentation" },

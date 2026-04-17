@@ -1,33 +1,17 @@
-import { memo, useState, useEffect, useMemo, useRef } from "react";
 import {
-  SparklesIcon,
-  GitBranchIcon,
-  FolderIcon,
+  AlertTriangleIcon,
+  BrainIcon,
+  CheckCircle2Icon,
   CheckIcon,
   ChevronsUpDownIcon,
-  LoaderIcon,
-  CheckCircle2Icon,
   CircleXIcon,
-  BrainIcon,
+  FolderIcon,
+  GitBranchIcon,
+  LoaderIcon,
   ShieldIcon,
-  AlertTriangleIcon,
+  SparklesIcon,
 } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
-import {
-  useAgent,
-  type AgentMessage,
-  type PermissionMode,
-} from "@/hooks/use-agent";
-import { useSlashCommands } from "@/hooks/use-slash-commands";
-import { SlashCommandMenu } from "@/components/slash-command-menu";
-
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import {
   Conversation,
   ConversationContent,
@@ -39,43 +23,69 @@ import {
   MessageResponse,
 } from "@/components/ai-elements/message";
 import {
-  PromptInput,
-  type PromptInputMessage,
-  PromptInputTextarea,
-  PromptInputSubmit,
-  PromptInputFooter,
-  PromptInputTools,
-  PromptInputBody,
-} from "@/components/ai-elements/prompt-input";
-import {
   ModelSelector,
-  ModelSelectorTrigger,
   ModelSelectorContent,
-  ModelSelectorInput,
-  ModelSelectorList,
   ModelSelectorEmpty,
   ModelSelectorGroup,
+  ModelSelectorInput,
   ModelSelectorItem,
+  ModelSelectorList,
   ModelSelectorLogo,
   ModelSelectorName,
+  ModelSelectorTrigger,
 } from "@/components/ai-elements/model-selector";
-import { Button } from "@/components/ui/button";
+import {
+  PromptInput,
+  PromptInputBody,
+  PromptInputFooter,
+  type PromptInputMessage,
+  PromptInputSubmit,
+  PromptInputTextarea,
+  PromptInputTools,
+} from "@/components/ai-elements/prompt-input";
 import { ToolDisplay } from "@/components/ai-elements/tool-renderers";
+import { SlashCommandMenu } from "@/components/slash-command-menu";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  type AgentMessage,
+  type PermissionMode,
+  useAgent,
+} from "@/hooks/use-agent";
+import { useSlashCommands } from "@/hooks/use-slash-commands";
 
 /** Extract provider name from a model ID like "anthropic:claude-sonnet-4-20250514" or "claude-sonnet-4-20250514" */
 function getProvider(modelId: string): string {
-  if (modelId.includes(":")) return modelId.split(":")[0];
-  if (modelId.startsWith("claude")) return "anthropic";
+  if (modelId.includes(":")) {
+    return modelId.split(":")[0];
+  }
+  if (modelId.startsWith("claude")) {
+    return "anthropic";
+  }
   if (
     modelId.startsWith("gpt") ||
     modelId.startsWith("o1") ||
     modelId.startsWith("o3") ||
     modelId.startsWith("o4")
-  )
+  ) {
     return "openai";
-  if (modelId.startsWith("gemini")) return "google";
-  if (modelId.startsWith("mistral")) return "mistral";
-  if (modelId.startsWith("deepseek")) return "deepseek";
+  }
+  if (modelId.startsWith("gemini")) {
+    return "google";
+  }
+  if (modelId.startsWith("mistral")) {
+    return "mistral";
+  }
+  if (modelId.startsWith("deepseek")) {
+    return "deepseek";
+  }
   return "openai";
 }
 
@@ -91,22 +101,23 @@ const MemoToolDisplay = memo(
   function MemoToolDisplay({ part }: { part: ToolPartProp }) {
     return <ToolDisplay part={part} />;
   },
-  (prev, next) => prev.part === next.part,
+  (prev, next) => prev.part === next.part
 );
+
 import {
   Reasoning,
   ReasoningContent,
   ReasoningTrigger,
 } from "@/components/ai-elements/reasoning";
-import { Task, TaskTrigger, TaskContent } from "@/components/ai-elements/task";
+import { Task, TaskContent, TaskTrigger } from "@/components/ai-elements/task";
 import { Spinner } from "@/components/ui/spinner";
 
-type Workspace = {
-  cwd: string;
-  displayPath: string;
+interface Workspace {
   basename: string;
   branch: string | null;
-};
+  cwd: string;
+  displayPath: string;
+}
 
 const SUGGESTIONS = [
   {
@@ -142,18 +153,20 @@ function EmptyState({
     fetch("/api/workspace")
       .then((r) => r.json())
       .then((data) => setWorkspace(data))
-      .catch(() => {});
+      .catch(() => {
+        /* ignore workspace fetch errors */
+      });
   }, []);
 
   return (
-    <div className="flex flex-col items-center justify-center gap-10 px-6 pb-16 w-full max-w-2xl mx-auto select-none">
+    <div className="mx-auto flex w-full max-w-2xl select-none flex-col items-center justify-center gap-10 px-6 pb-16">
       {/* Greeting */}
       <div className="flex flex-col items-center gap-4">
-        <h2 className="text-2xl font-medium tracking-tight text-foreground/90">
+        <h2 className="font-medium text-2xl text-foreground/90 tracking-tight">
           What can I help you build?
         </h2>
         {workspace && (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
+          <div className="flex items-center gap-1.5 font-mono text-muted-foreground text-xs">
             <FolderIcon className="size-3" strokeWidth={1.5} />
             <span>{workspace.displayPath}</span>
             {workspace.branch && (
@@ -168,13 +181,13 @@ function EmptyState({
       </div>
 
       {/* Suggestion pills */}
-      <div className="flex flex-wrap items-center justify-center gap-2 max-w-lg">
+      <div className="flex max-w-lg flex-wrap items-center justify-center gap-2">
         {SUGGESTIONS.map(({ title, prompt }) => (
           <button
+            className="rounded-full border border-border/70 bg-card/50 px-4 py-2 text-muted-foreground text-sm transition-all duration-200 hover:-translate-y-px hover:border-[#da7756]/50 hover:bg-[#da7756]/5 hover:text-foreground hover:shadow-[#da7756]/10 hover:shadow-sm active:translate-y-0 active:shadow-none"
             key={title}
-            type="button"
             onClick={() => onSuggestion(prompt)}
-            className="rounded-full border border-border/70 bg-card/50 px-4 py-2 text-sm text-muted-foreground transition-all duration-200 hover:border-[#da7756]/50 hover:text-foreground hover:bg-[#da7756]/5 hover:shadow-sm hover:shadow-[#da7756]/10 hover:-translate-y-px active:translate-y-0 active:shadow-none"
+            type="button"
           >
             {title}
           </button>
@@ -193,16 +206,18 @@ function groupParts(parts: AgentMessage["parts"]): Segment[] {
   const segments: Segment[] = [];
   for (let i = 0; i < parts.length; i++) {
     const part = parts[i];
-    if (part.type === "reasoning") continue; // handled separately
+    if (part.type === "reasoning") {
+      continue; // handled separately
+    }
     if (part.type === "text") {
-      const last = segments[segments.length - 1];
+      const last = segments.at(-1);
       if (last?.type === "text") {
         last.parts.push({ text: part.text, index: i });
       } else {
         segments.push({ type: "text", parts: [{ text: part.text, index: i }] });
       }
     } else if (part.type === "dynamic-tool") {
-      const last = segments[segments.length - 1];
+      const last = segments.at(-1);
       if (last?.type === "tools") {
         last.parts.push({ part, index: i });
       } else {
@@ -221,12 +236,12 @@ const ToolGroupSummary = memo(function ToolGroupSummary({
   const completed = tools.filter((t) => t.state === "completed").length;
   const failed = tools.filter((t) => t.state === "failed").length;
   const active = tools.some(
-    (t) => t.state === "pending" || t.state === "in_progress",
+    (t) => t.state === "pending" || t.state === "in_progress"
   );
 
   if (active) {
     return (
-      <span className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
+      <span className="ml-auto flex items-center gap-1.5 text-muted-foreground text-xs">
         <LoaderIcon className="size-3 animate-spin text-blue-500" />
         {completed}/{tools.length}
       </span>
@@ -234,14 +249,14 @@ const ToolGroupSummary = memo(function ToolGroupSummary({
   }
   if (failed > 0) {
     return (
-      <span className="ml-auto flex items-center gap-1.5 text-xs text-destructive">
+      <span className="ml-auto flex items-center gap-1.5 text-destructive text-xs">
         <CircleXIcon className="size-3" />
         {failed} failed
       </span>
     );
   }
   return (
-    <span className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
+    <span className="ml-auto flex items-center gap-1.5 text-muted-foreground text-xs">
       <CheckCircle2Icon className="size-3 text-green-500" />
       {completed} done
     </span>
@@ -270,7 +285,7 @@ const ToolGroup = memo(function ToolGroup({
   const label = `${tools.length} actions`;
 
   return (
-    <Task defaultOpen={isActive} className="w-full">
+    <Task className="w-full" defaultOpen={isActive}>
       <TaskTrigger title={label}>
         <div className="flex w-full cursor-pointer items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm transition-colors hover:bg-accent/50">
           <SparklesIcon className="size-4 text-muted-foreground" />
@@ -303,7 +318,7 @@ const MessageParts = memo(function MessageParts({
         .filter((part) => part.type === "reasoning")
         .map((part) => part.text)
         .join("\n\n"),
-    [message.parts],
+    [message.parts]
   );
   const hasReasoning = reasoningText.length > 0;
 
@@ -321,7 +336,7 @@ const MessageParts = memo(function MessageParts({
           <ReasoningContent>{reasoningText}</ReasoningContent>
         </Reasoning>
       )}
-      {segments.map((segment, si) => {
+      {segments.map((segment) => {
         if (segment.type === "text") {
           return segment.parts.map(({ text, index }) => (
             <MessageResponse key={`${message.id}-text-${index}`}>
@@ -335,14 +350,14 @@ const MessageParts = memo(function MessageParts({
           isStreaming &&
           segment.parts.some(
             ({ part }) =>
-              part.state === "pending" || part.state === "in_progress",
+              part.state === "pending" || part.state === "in_progress"
           );
         return (
           <ToolGroup
-            key={`${message.id}-toolgroup-${si}`}
-            tools={segment.parts}
-            messageId={message.id}
             isActive={hasActive}
+            key={`${message.id}-toolgroup-${segment.parts.map(({ part }) => part.toolCallId).join("-")}`}
+            messageId={message.id}
+            tools={segment.parts}
           />
         );
       })}
@@ -350,18 +365,18 @@ const MessageParts = memo(function MessageParts({
   );
 });
 
-export type ChatDebugInfo = {
-  status: string;
-  error: string | null;
-  messageCount: number;
-  selectedModel: string;
-  models: string[];
-  lastMessageRole?: string;
-  sessionId: string | null;
-  messages: AgentMessage[];
-  rawMessages: unknown[];
+export interface ChatDebugInfo {
   debugEvents: unknown[];
-};
+  error: string | null;
+  lastMessageRole?: string;
+  messageCount: number;
+  messages: AgentMessage[];
+  models: string[];
+  rawMessages: unknown[];
+  selectedModel: string;
+  sessionId: string | null;
+  status: string;
+}
 
 type EffortLevel = "off" | "low" | "medium" | "high" | "max";
 
@@ -437,8 +452,10 @@ export function ChatInner({
     PERMISSION_MODES[1];
 
   useEffect(() => {
-    if (agent.status === "ready") agent.changeEffort(effort);
-  }, [agent.status, effort]);
+    if (agent.status === "ready") {
+      agent.changeEffort(effort);
+    }
+  }, [agent.status, effort, agent.changeEffort]);
   const handleSuggestion = (text: string) => setInput(text);
   const prevStatusRef = useRef(agent.status);
 
@@ -454,7 +471,7 @@ export function ChatInner({
     if (agent.sessionId && agent.sessionId !== sessionId) {
       onSessionReady?.(agent.sessionId);
     }
-  }, [agent.sessionId]);
+  }, [agent.sessionId, onSessionReady, sessionId]);
 
   // Notify parent when a prompt completes
   useEffect(() => {
@@ -462,7 +479,7 @@ export function ChatInner({
       onPromptDone?.();
     }
     prevStatusRef.current = agent.status;
-  }, [agent.status]);
+  }, [agent.status, onPromptDone]);
 
   const messageCount = agent.messages.length;
   const lastMessageRole = agent.messages.at(-1)?.role;
@@ -498,14 +515,28 @@ export function ChatInner({
   const isReady = agent.status === "ready";
 
   const handleSubmit = (message: PromptInputMessage) => {
-    if (!message.text.trim()) return;
+    if (!message.text.trim()) {
+      return;
+    }
     // Try executing as a slash command first
-    if (slashCommands.executeFromInput(message.text)) return;
+    if (slashCommands.executeFromInput(message.text)) {
+      return;
+    }
     agent.sendMessage(message.text);
     setInput("");
   };
 
-  const activeEffort = EFFORT_LEVELS.find((m) => m.id === effort)!;
+  const activeEffort =
+    EFFORT_LEVELS.find((m) => m.id === effort) ?? EFFORT_LEVELS[0];
+
+  let inputPlaceholder: string;
+  if (isLoading) {
+    inputPlaceholder = "Loading conversation...";
+  } else if (isReady) {
+    inputPlaceholder = "Message Claude...";
+  } else {
+    inputPlaceholder = "Thinking...";
+  }
 
   if (agent.status === "error" && agent.messages.length === 0) {
     return (
@@ -518,51 +549,49 @@ export function ChatInner({
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full flex-col">
       {isLoading && (
         <div className="h-0.5 w-full overflow-hidden bg-muted">
-          <div className="h-full w-1/3 animate-[shimmer_1.5s_ease-in-out_infinite] bg-primary/40 rounded-full" />
+          <div className="h-full w-1/3 animate-[shimmer_1.5s_ease-in-out_infinite] rounded-full bg-primary/40" />
         </div>
       )}
       {agent.messages.length === 0 && !isLoading ? (
-        <div className="flex-1 flex items-center justify-center">
+        <div className="flex flex-1 items-center justify-center">
           <EmptyState onSuggestion={handleSuggestion} />
         </div>
       ) : (
         <Conversation>
           <ConversationContent>
-            <>
-              {isLoading && (
-                <div className="flex items-center gap-2 px-4 py-2 text-xs text-muted-foreground">
-                  <Spinner className="size-3" />
-                  <span>Restoring conversation...</span>
-                </div>
-              )}
-              {agent.messages.map((message, index) => (
-                <Message from={message.role} key={message.id}>
-                  <MessageContent>
-                    <MessageParts
-                      message={message}
-                      isLastMessage={index === agent.messages.length - 1}
-                      isStreaming={isStreaming}
-                    />
-                  </MessageContent>
-                </Message>
-              ))}
-            </>
+            {isLoading && (
+              <div className="flex items-center gap-2 px-4 py-2 text-muted-foreground text-xs">
+                <Spinner className="size-3" />
+                <span>Restoring conversation...</span>
+              </div>
+            )}
+            {agent.messages.map((message, index) => (
+              <Message from={message.role} key={message.id}>
+                <MessageContent>
+                  <MessageParts
+                    isLastMessage={index === agent.messages.length - 1}
+                    isStreaming={isStreaming}
+                    message={message}
+                  />
+                </MessageContent>
+              </Message>
+            ))}
 
-            {isStreaming &&
-              agent.messages[agent.messages.length - 1]?.role !==
-                "assistant" && <Spinner />}
+            {isStreaming && agent.messages.at(-1)?.role !== "assistant" && (
+              <Spinner />
+            )}
           </ConversationContent>
           <ConversationScrollButton />
         </Conversation>
       )}
 
       {agent.permissionDenials.length > 0 && (
-        <div className="w-full max-w-4xl mx-auto px-4">
-          <div className="mb-2 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
-            <AlertTriangleIcon className="size-3.5 mt-0.5 shrink-0" />
+        <div className="mx-auto w-full max-w-4xl px-4">
+          <div className="mb-2 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-amber-700 text-xs dark:text-amber-400">
+            <AlertTriangleIcon className="mt-0.5 size-3.5 shrink-0" />
             <span>
               Claude was blocked from using{" "}
               <span className="font-medium">
@@ -577,27 +606,21 @@ export function ChatInner({
         </div>
       )}
       <SlashCommandMenu
-        isOpen={slashCommands.isOpen}
         commands={slashCommands.commands}
+        isOpen={slashCommands.isOpen}
         onSelect={slashCommands.selectCommand}
       >
         <PromptInput
+          className="mx-auto w-full max-w-4xl px-4 pb-4"
           onSubmit={handleSubmit}
-          className="w-full max-w-4xl mx-auto px-4 pb-4"
         >
           <PromptInputBody>
             <PromptInputTextarea
-              value={input}
-              placeholder={
-                isLoading
-                  ? "Loading conversation..."
-                  : isReady
-                    ? "Message Claude..."
-                    : "Thinking..."
-              }
+              disabled={!isReady}
               onChange={(e) => setInput(e.currentTarget.value)}
               onKeyDown={slashCommands.handleKeyDown}
-              disabled={!isReady}
+              placeholder={inputPlaceholder}
+              value={input}
             />
           </PromptInputBody>
           <PromptInputFooter>
@@ -605,10 +628,10 @@ export function ChatInner({
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
-                    variant="outline"
-                    size="sm"
                     className="h-8 gap-1.5 rounded-lg px-2.5 text-xs"
                     disabled={isStreaming}
+                    size="sm"
+                    variant="outline"
                   >
                     <BrainIcon className="size-3.5" />
                     <span className="truncate">{activeEffort.label}</span>
@@ -620,13 +643,13 @@ export function ChatInner({
                   <DropdownMenuSeparator />
                   {EFFORT_LEVELS.map((m) => (
                     <DropdownMenuItem
+                      className="flex items-start gap-2"
                       key={m.id}
                       onSelect={() => setEffort(m.id)}
-                      className="flex items-start gap-2"
                     >
                       <CheckIcon
                         className={
-                          "size-3.5 " +
+                          "size-3.5" +
                           (m.id === effort ? "text-primary" : "opacity-0")
                         }
                       />
@@ -638,10 +661,10 @@ export function ChatInner({
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
-                    variant="outline"
-                    size="sm"
                     className="h-8 gap-1.5 rounded-lg px-2.5 text-xs"
                     disabled={isStreaming}
+                    size="sm"
+                    variant="outline"
                   >
                     <ShieldIcon className="size-3.5" />
                     <span className="truncate">{activePermission.label}</span>
@@ -653,21 +676,21 @@ export function ChatInner({
                   <DropdownMenuSeparator />
                   {PERMISSION_MODES.map((m) => (
                     <DropdownMenuItem
+                      className="flex items-start gap-2"
                       key={m.id}
                       onSelect={() => agent.changePermissionMode(m.id)}
-                      className="flex items-start gap-2"
                     >
                       <CheckIcon
                         className={
-                          "size-3.5 mt-0.5 shrink-0 " +
+                          "mt-0.5 size-3.5 shrink-0" +
                           (m.id === permissionMode
                             ? "text-primary"
                             : "opacity-0")
                         }
                       />
                       <div className="flex flex-col">
-                        <span className="text-sm font-medium">{m.label}</span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="font-medium text-sm">{m.label}</span>
+                        <span className="text-muted-foreground text-xs">
                           {m.description}
                         </span>
                       </div>
@@ -679,18 +702,18 @@ export function ChatInner({
                 <ModelSelector>
                   <ModelSelectorTrigger asChild>
                     <Button
-                      variant="outline"
-                      size="sm"
                       className="h-8 gap-1.5 rounded-lg px-2.5 text-xs"
                       disabled={isStreaming}
+                      size="sm"
+                      variant="outline"
                     >
                       <ModelSelectorLogo
-                        provider={getProvider(agent.selectedModel)}
                         className="size-3.5"
+                        provider={getProvider(agent.selectedModel)}
                       />
-                      <span className="truncate max-w-32">
+                      <span className="max-w-32 truncate">
                         {agent.models.find(
-                          (m) => m.modelId === agent.selectedModel,
+                          (m) => m.modelId === agent.selectedModel
                         )?.name ?? agent.selectedModel}
                       </span>
                       <ChevronsUpDownIcon className="size-3 text-muted-foreground" />
@@ -703,14 +726,14 @@ export function ChatInner({
                       <ModelSelectorGroup heading="Models">
                         {agent.models.map((m) => (
                           <ModelSelectorItem
-                            key={m.modelId}
-                            value={m.modelId}
-                            onSelect={() => agent.changeModel(m.modelId)}
                             className="flex items-center gap-2"
+                            key={m.modelId}
+                            onSelect={() => agent.changeModel(m.modelId)}
+                            value={m.modelId}
                           >
                             <ModelSelectorLogo
-                              provider={getProvider(m.modelId)}
                               className="size-4"
+                              provider={getProvider(m.modelId)}
                             />
                             <ModelSelectorName>{m.name}</ModelSelectorName>
                             {m.modelId === agent.selectedModel && (
@@ -725,8 +748,8 @@ export function ChatInner({
               )}
             </PromptInputTools>
             <PromptInputSubmit
+              disabled={!(input.trim() && isReady)}
               status={isStreaming ? "streaming" : "ready"}
-              disabled={!input.trim() || !isReady}
             />
           </PromptInputFooter>
         </PromptInput>

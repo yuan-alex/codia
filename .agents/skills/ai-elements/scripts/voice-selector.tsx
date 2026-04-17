@@ -1,5 +1,7 @@
 "use client";
 
+import type { ComponentProps } from "react";
+import { memo, useCallback, useRef, useState } from "react";
 import {
   VoiceSelector,
   VoiceSelectorAccent,
@@ -17,8 +19,6 @@ import {
   VoiceSelectorTrigger,
 } from "@/components/ai-elements/voice-selector";
 import { Button } from "@/components/ui/button";
-import type { ComponentProps } from "react";
-import { memo, useCallback, useRef, useState } from "react";
 
 const voices: {
   id: string;
@@ -92,11 +92,11 @@ const voices: {
 ];
 
 interface VoiceItemProps {
-  voice: (typeof voices)[0];
-  playingVoice: string | null;
   loadingVoice: string | null;
-  onSelect: (id: string) => void;
   onPreview: (id: string) => void;
+  onSelect: (id: string) => void;
+  playingVoice: string | null;
+  voice: (typeof voices)[0];
 }
 
 const VoiceItem = memo(
@@ -109,11 +109,11 @@ const VoiceItem = memo(
   }: VoiceItemProps) => {
     const handleSelect = useCallback(
       () => onSelect(voice.id),
-      [onSelect, voice.id],
+      [onSelect, voice.id]
     );
     const handlePreview = useCallback(
       () => onPreview(voice.id),
-      [onPreview, voice.id],
+      [onPreview, voice.id]
     );
     return (
       <VoiceSelectorItem
@@ -136,7 +136,7 @@ const VoiceItem = memo(
         <VoiceSelectorGender value={voice.gender} />
       </VoiceSelectorItem>
     );
-  },
+  }
 );
 
 VoiceItem.displayName = "VoiceItem";
@@ -195,7 +195,7 @@ const Example = () => {
 
       audio.load();
     },
-    [playingVoice],
+    [playingVoice]
   );
 
   const selectedVoiceData = voices.find((voice) => voice.id === selectedVoice);

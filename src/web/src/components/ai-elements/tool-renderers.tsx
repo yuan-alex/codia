@@ -1,31 +1,31 @@
 "use client";
 
-import { cn } from "@/lib/utils";
-import type { Part, ToolContentBlock, ToolKind } from "@/hooks/use-agent";
 import {
+  ArrowRightIcon,
+  BotIcon,
+  BrainIcon,
+  FileEditIcon,
+  FileIcon,
+  GlobeIcon,
+  SearchIcon,
+  TerminalIcon,
+  TrashIcon,
+  WrenchIcon,
+} from "lucide-react";
+import type { ReactNode } from "react";
+import { useState } from "react";
+import type { BundledLanguage } from "shiki";
+import type { Part, ToolContentBlock, ToolKind } from "@/hooks/use-agent";
+import { cn } from "@/lib/utils";
+import {
+  CodeBlockActions,
   CodeBlockContainer,
   CodeBlockContent,
   CodeBlockCopyButton,
+  CodeBlockFilename,
   CodeBlockHeader,
   CodeBlockTitle,
-  CodeBlockFilename,
-  CodeBlockActions,
 } from "./code-block";
-import {
-  FileIcon,
-  FileEditIcon,
-  SearchIcon,
-  TerminalIcon,
-  BrainIcon,
-  GlobeIcon,
-  TrashIcon,
-  ArrowRightIcon,
-  WrenchIcon,
-  BotIcon,
-} from "lucide-react";
-import { useState } from "react";
-import type { ReactNode } from "react";
-import type { BundledLanguage } from "shiki";
 
 type ToolPart = Extract<Part, { type: "dynamic-tool" }>;
 
@@ -91,8 +91,12 @@ function langFromPath(path: string): BundledLanguage {
   const filename = path.split("/").pop() ?? "";
   // Handle dotfiles like Dockerfile, Makefile
   const lower = filename.toLowerCase();
-  if (lower === "dockerfile") return "dockerfile";
-  if (lower === "makefile") return "makefile";
+  if (lower === "dockerfile") {
+    return "dockerfile";
+  }
+  if (lower === "makefile") {
+    return "makefile";
+  }
 
   const ext = filename.split(".").pop()?.toLowerCase() ?? "";
   return EXT_TO_LANG[ext] ?? ("text" as BundledLanguage);
@@ -119,15 +123,15 @@ function TextContent({
 
   return (
     <div className={cn(!expanded && isLong && "relative")}>
-      <pre className="whitespace-pre-wrap break-words text-xs text-muted-foreground font-mono p-3 overflow-auto">
+      <pre className="overflow-auto whitespace-pre-wrap break-words p-3 font-mono text-muted-foreground text-xs">
         {displayText}
       </pre>
       {isLong && !expanded && (
-        <div className="absolute inset-x-0 bottom-0 flex items-end justify-center h-16 bg-gradient-to-t from-background to-transparent">
+        <div className="absolute inset-x-0 bottom-0 flex h-16 items-end justify-center bg-gradient-to-t from-background to-transparent">
           <button
-            type="button"
+            className="mb-2 rounded-full border bg-muted px-3 py-1 font-medium text-muted-foreground text-xs transition-colors hover:text-foreground"
             onClick={() => setExpanded(true)}
-            className="mb-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors px-3 py-1 rounded-full bg-muted border"
+            type="button"
           >
             Show all {lines.length} lines
           </button>
@@ -135,6 +139,16 @@ function TextContent({
       )}
     </div>
   );
+}
+
+function diffGutterChar(lineType: "add" | "remove" | "context"): string {
+  if (lineType === "add") {
+    return "+";
+  }
+  if (lineType === "remove") {
+    return "-";
+  }
+  return " ";
 }
 
 function DiffContent({
@@ -155,7 +169,7 @@ function DiffContent({
         <CodeBlockHeader>
           <CodeBlockTitle>
             <CodeBlockFilename>{basename(path)}</CodeBlockFilename>
-            <span className="text-green-600 text-xs font-medium">new file</span>
+            <span className="font-medium text-green-600 text-xs">new file</span>
           </CodeBlockTitle>
           <CodeBlockActions>
             <CodeBlockCopyButton />
@@ -169,7 +183,15 @@ function DiffContent({
   // Compute simple line-level diff
   const oldLines = oldText.split("\n");
   const newLines = newText.split("\n");
-  const diffLines: { type: "add" | "remove" | "context"; text: string }[] = [];
+  const diffLines: {
+    id: number;
+    type: "add" | "remove" | "context";
+    text: string;
+  }[] = [];
+  let diffLineId = 0;
+  const pushLine = (type: "add" | "remove" | "context", text: string) => {
+    diffLines.push({ id: diffLineId++, text, type });
+  };
 
   // Simple LCS-based diff
   const lcs = buildLcs(oldLines, newLines);
@@ -178,28 +200,28 @@ function DiffContent({
 
   for (const line of lcs) {
     while (oi < oldLines.length && oldLines[oi] !== line) {
-      diffLines.push({ type: "remove", text: oldLines[oi] });
+      pushLine("remove", oldLines[oi]);
       oi++;
     }
     while (ni < newLines.length && newLines[ni] !== line) {
-      diffLines.push({ type: "add", text: newLines[ni] });
+      pushLine("add", newLines[ni]);
       ni++;
     }
-    diffLines.push({ type: "context", text: line });
+    pushLine("context", line);
     oi++;
     ni++;
   }
   while (oi < oldLines.length) {
-    diffLines.push({ type: "remove", text: oldLines[oi] });
+    pushLine("remove", oldLines[oi]);
     oi++;
   }
   while (ni < newLines.length) {
-    diffLines.push({ type: "add", text: newLines[ni] });
+    pushLine("add", newLines[ni]);
     ni++;
   }
 
   return (
-    <div className="rounded-md border overflow-hidden">
+    <div className="overflow-hidden rounded-md border">
       <div className="flex items-center justify-between border-b bg-muted/80 px-3 py-2 text-muted-foreground text-xs">
         <span className="font-mono">{basename(path)}</span>
         <span>
@@ -211,21 +233,21 @@ function DiffContent({
           </span>
         </span>
       </div>
-      <pre className="overflow-auto text-xs font-mono p-0 m-0">
-        {diffLines.map((line, i) => (
+      <pre className="m-0 overflow-auto p-0 font-mono text-xs">
+        {diffLines.map((line) => (
           <div
-            key={`${i}-${line.type}`}
             className={cn(
               "px-3 leading-relaxed",
               line.type === "add" &&
                 "bg-green-500/10 text-green-700 dark:text-green-400",
               line.type === "remove" &&
-                "bg-red-500/10 text-red-700 dark:text-red-400 line-through opacity-70",
-              line.type === "context" && "text-muted-foreground",
+                "bg-red-500/10 text-red-700 line-through opacity-70 dark:text-red-400",
+              line.type === "context" && "text-muted-foreground"
             )}
+            key={line.id}
           >
-            <span className="select-none inline-block w-4 mr-2 text-muted-foreground/50">
-              {line.type === "add" ? "+" : line.type === "remove" ? "-" : " "}
+            <span className="mr-2 inline-block w-4 select-none text-muted-foreground/50">
+              {diffGutterChar(line.type)}
             </span>
             {line.text}
           </div>
@@ -244,7 +266,7 @@ function buildLcs(a: string[], b: string[]): string[] {
   const m = a.length;
   const n = b.length;
   const dp: number[][] = Array.from({ length: m + 1 }, () =>
-    new Array(n + 1).fill(0),
+    new Array(n + 1).fill(0)
   );
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
@@ -274,7 +296,7 @@ function buildLcs(a: string[], b: string[]): string[] {
 function TerminalContent({ terminalId }: { terminalId: string }) {
   // TODO: integrate with terminal/create websocket stream
   return (
-    <div className="flex items-center gap-2 p-3 text-xs text-muted-foreground font-mono">
+    <div className="flex items-center gap-2 p-3 font-mono text-muted-foreground text-xs">
       <TerminalIcon className="size-3" />
       <span>Terminal {terminalId}</span>
     </div>
@@ -284,28 +306,35 @@ function TerminalContent({ terminalId }: { terminalId: string }) {
 // ── Render content blocks ──────────────────────────────────────────
 
 function ToolContentBlocks({ content }: { content: ToolContentBlock[] }) {
-  if (content.length === 0) return null;
+  if (content.length === 0) {
+    return null;
+  }
 
   return (
     <div className="space-y-2">
-      {content.map((block, i) => {
+      {content.map((block) => {
         if (block.type === "content" && block.content.type === "text") {
-          return <TextContent key={`content-${i}`} text={block.content.text} />;
+          return (
+            <TextContent
+              key={`content-${block.content.text}`}
+              text={block.content.text}
+            />
+          );
         }
         if (block.type === "diff") {
           return (
             <DiffContent
-              key={`diff-${i}`}
-              path={block.path}
-              oldText={block.oldText}
+              key={`diff-${block.path}-${block.oldText ?? ""}-${block.newText}`}
               newText={block.newText}
+              oldText={block.oldText}
+              path={block.path}
             />
           );
         }
         if (block.type === "terminal") {
           return (
             <TerminalContent
-              key={`terminal-${i}`}
+              key={`terminal-${block.terminalId}`}
               terminalId={block.terminalId}
             />
           );
@@ -332,12 +361,12 @@ function ReadToolDisplay({ part }: { part: ToolPart }) {
     <ToolShell part={part}>
       {filePath && (
         <button
-          type="button"
-          onClick={() => isDone && textContent && setExpanded((e) => !e)}
           className={cn(
-            "font-mono text-xs text-muted-foreground",
-            isDone && textContent && "hover:text-foreground cursor-pointer",
+            "font-mono text-muted-foreground text-xs",
+            isDone && textContent && "cursor-pointer hover:text-foreground"
           )}
+          onClick={() => isDone && textContent && setExpanded((e) => !e)}
+          type="button"
         >
           {filePath}
           {isDone && textContent && (
@@ -392,7 +421,7 @@ function EditToolDisplay({ part }: { part: ToolPart }) {
   return (
     <ToolShell part={part}>
       {filePath && (
-        <span className="font-mono text-xs text-muted-foreground">
+        <span className="font-mono text-muted-foreground text-xs">
           {filePath}
         </span>
       )}
@@ -409,13 +438,13 @@ function ExecuteToolDisplay({ part }: { part: ToolPart }) {
   return (
     <ToolShell part={part}>
       {command && (
-        <div className="rounded-md border overflow-hidden">
-          <div className="flex items-center gap-2 bg-muted/80 px-3 py-2 text-xs border-b">
+        <div className="overflow-hidden rounded-md border">
+          <div className="flex items-center gap-2 border-b bg-muted/80 px-3 py-2 text-xs">
             <TerminalIcon className="size-3 text-muted-foreground" />
             <code className="font-mono text-foreground">{command}</code>
           </div>
           {textContent && (
-            <pre className="p-3 text-xs font-mono whitespace-pre-wrap break-words overflow-auto max-h-80 text-muted-foreground">
+            <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words p-3 font-mono text-muted-foreground text-xs">
               {textContent}
             </pre>
           )}
@@ -441,12 +470,12 @@ function SearchToolDisplay({ part }: { part: ToolPart }) {
     <ToolShell part={part}>
       {pattern && (
         <button
-          type="button"
-          onClick={() => isDone && textContent && setExpanded((e) => !e)}
           className={cn(
             "flex items-center gap-2 px-1 text-xs",
-            isDone && textContent && "hover:text-foreground cursor-pointer",
+            isDone && textContent && "cursor-pointer hover:text-foreground"
           )}
+          onClick={() => isDone && textContent && setExpanded((e) => !e)}
+          type="button"
         >
           <SearchIcon className="size-3 text-muted-foreground" />
           <code className="font-mono text-muted-foreground">{pattern}</code>
@@ -458,7 +487,7 @@ function SearchToolDisplay({ part }: { part: ToolPart }) {
         </button>
       )}
       {expanded && textContent && (
-        <pre className="whitespace-pre-wrap break-words text-xs text-muted-foreground font-mono p-3 overflow-auto max-h-80 rounded-md border bg-muted/30">
+        <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md border bg-muted/30 p-3 font-mono text-muted-foreground text-xs">
           {textContent}
         </pre>
       )}
@@ -472,9 +501,9 @@ function ThinkToolDisplay({ part }: { part: ToolPart }) {
 
   return (
     <ToolShell part={part}>
-      {description && <p className="text-sm text-foreground">{description}</p>}
+      {description && <p className="text-foreground text-sm">{description}</p>}
       {prompt && (
-        <pre className="whitespace-pre-wrap break-words text-xs text-muted-foreground font-mono p-3 overflow-auto max-h-40 rounded-md border bg-muted/30">
+        <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-md border bg-muted/30 p-3 font-mono text-muted-foreground text-xs">
           {prompt}
         </pre>
       )}
@@ -493,28 +522,28 @@ function AgentToolDisplay({ part }: { part: ToolPart }) {
 
   return (
     <ToolShell part={part}>
-      {description && <p className="text-sm text-foreground">{description}</p>}
+      {description && <p className="text-foreground text-sm">{description}</p>}
       {subagentType && (
-        <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-2 py-0.5 text-[10px] font-medium text-indigo-500 w-fit">
+        <span className="inline-flex w-fit items-center gap-1 rounded-full bg-indigo-500/10 px-2 py-0.5 font-medium text-[10px] text-indigo-500">
           {subagentType}
         </span>
       )}
       {prompt && (
         <button
-          type="button"
+          className="w-full text-left"
           onClick={() => setExpanded((e) => !e)}
-          className="text-left w-full"
+          type="button"
         >
           <pre
             className={cn(
-              "whitespace-pre-wrap break-words text-xs text-muted-foreground font-mono p-3 overflow-auto rounded-md border bg-muted/30",
-              !expanded && "max-h-16",
+              "overflow-auto whitespace-pre-wrap break-words rounded-md border bg-muted/30 p-3 font-mono text-muted-foreground text-xs",
+              !expanded && "max-h-16"
             )}
           >
             {prompt}
           </pre>
           {!expanded && prompt.split("\n").length > 3 && (
-            <span className="text-xs text-muted-foreground/60 mt-1 block">
+            <span className="mt-1 block text-muted-foreground/60 text-xs">
               Click to expand prompt
             </span>
           )}
@@ -523,16 +552,16 @@ function AgentToolDisplay({ part }: { part: ToolPart }) {
       {(isDone || isFailed) && textContent && (
         <div
           className={cn(
-            "rounded-md border overflow-hidden",
-            isFailed && "border-destructive/30",
+            "overflow-hidden rounded-md border",
+            isFailed && "border-destructive/30"
           )}
         >
           <div
             className={cn(
-              "px-3 py-1.5 text-xs font-medium border-b",
+              "border-b px-3 py-1.5 font-medium text-xs",
               isFailed
                 ? "bg-destructive/10 text-destructive"
-                : "bg-muted/80 text-muted-foreground",
+                : "bg-muted/80 text-muted-foreground"
             )}
           >
             {isFailed ? "Error" : "Result"}
@@ -571,18 +600,18 @@ function ToolShell({
   return (
     <div
       className={cn(
-        "w-full rounded-lg border bg-card text-card-foreground overflow-hidden",
-        isRunning && "border-blue-500/30",
+        "w-full overflow-hidden rounded-lg border bg-card text-card-foreground",
+        isRunning && "border-blue-500/30"
       )}
     >
       <div className="flex items-center gap-2 px-3 py-2 text-sm">
         {getKindIcon(part.kind)}
-        <span className="font-medium truncate">
+        <span className="truncate font-medium">
           {part.title || part.toolName}
         </span>
         <ToolStatusIndicator state={part.state} />
       </div>
-      {children && <div className="px-3 pb-3 space-y-2">{children}</div>}
+      {children && <div className="space-y-2 px-3 pb-3">{children}</div>}
     </div>
   );
 }
@@ -590,8 +619,8 @@ function ToolShell({
 function ToolStatusIndicator({ state }: { state: ToolPart["state"] }) {
   if (state === "pending" || state === "in_progress") {
     return (
-      <span className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
-        <span className="size-1.5 rounded-full bg-blue-500 animate-pulse" />
+      <span className="ml-auto flex items-center gap-1.5 text-muted-foreground text-xs">
+        <span className="size-1.5 animate-pulse rounded-full bg-blue-500" />
         {state === "pending" ? "Pending" : "Running"}
       </span>
     );
@@ -601,7 +630,7 @@ function ToolStatusIndicator({ state }: { state: ToolPart["state"] }) {
   }
   if (state === "failed") {
     return (
-      <span className="ml-auto text-xs text-destructive font-medium">
+      <span className="ml-auto font-medium text-destructive text-xs">
         Failed
       </span>
     );
@@ -615,7 +644,7 @@ function extractText(content: ToolContentBlock[]): string {
   return content
     .filter(
       (c): c is Extract<ToolContentBlock, { type: "content" }> =>
-        c.type === "content" && c.content.type === "text",
+        c.type === "content" && c.content.type === "text"
     )
     .map((c) => c.content.text)
     .join("\n");

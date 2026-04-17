@@ -1,5 +1,7 @@
 "use client";
 
+import { nanoid } from "nanoid";
+import { memo, useCallback, useState } from "react";
 import {
   Attachment,
   AttachmentHoverCard,
@@ -12,8 +14,6 @@ import {
   getAttachmentLabel,
   getMediaCategory,
 } from "@/components/ai-elements/attachments";
-import { nanoid } from "nanoid";
-import { memo, useCallback, useState } from "react";
 
 const initialAttachments = [
   {
@@ -54,7 +54,7 @@ interface AttachmentItemProps {
 const AttachmentItem = memo(({ attachment, onRemove }: AttachmentItemProps) => {
   const handleRemove = useCallback(
     () => onRemove(attachment.id),
-    [onRemove, attachment.id],
+    [onRemove, attachment.id]
   );
   const mediaCategory = getMediaCategory(attachment);
   const label = getAttachmentLabel(attachment);

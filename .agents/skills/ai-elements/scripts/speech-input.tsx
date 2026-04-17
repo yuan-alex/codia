@@ -1,7 +1,7 @@
 "use client";
 
-import { SpeechInput } from "@/components/ai-elements/speech-input";
 import { useCallback, useState } from "react";
+import { SpeechInput } from "@/components/ai-elements/speech-input";
 
 /**
  * Fallback handler for browsers that don't support Web Speech API (Firefox, Safari).
@@ -21,7 +21,7 @@ const handleAudioRecorded = async (audioBlob: Blob): Promise<string> => {
         Authorization: `Bearer ${process.env.NEXT_PUBLIC_OPENAI_API_KEY}`,
       },
       method: "POST",
-    },
+    }
   );
 
   if (!response.ok) {

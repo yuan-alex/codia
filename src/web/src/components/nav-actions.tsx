@@ -1,5 +1,21 @@
-import * as React from "react";
-
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  BellIcon,
+  ChartLineIcon,
+  CopyIcon,
+  CornerUpLeftIcon,
+  CornerUpRightIcon,
+  FileTextIcon,
+  GalleryVerticalEndIcon,
+  LinkIcon,
+  MoreHorizontalIcon,
+  Settings2Icon,
+  StarIcon,
+  Trash2Icon,
+  TrashIcon,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -15,23 +31,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import {
-  Settings2Icon,
-  FileTextIcon,
-  LinkIcon,
-  CopyIcon,
-  CornerUpRightIcon,
-  Trash2Icon,
-  CornerUpLeftIcon,
-  ChartLineIcon,
-  GalleryVerticalEndIcon,
-  TrashIcon,
-  BellIcon,
-  ArrowUpIcon,
-  ArrowDownIcon,
-  StarIcon,
-  MoreHorizontalIcon,
-} from "lucide-react";
 
 const data = [
   [
@@ -97,9 +96,9 @@ const data = [
 ];
 
 export function NavActions() {
-  const [isOpen, setIsOpen] = React.useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setIsOpen(true);
   }, []);
 
@@ -108,31 +107,34 @@ export function NavActions() {
       <div className="hidden font-medium text-muted-foreground md:inline-block">
         Edit Oct 08
       </div>
-      <Button variant="ghost" size="icon" className="h-7 w-7">
+      <Button className="h-7 w-7" size="icon" variant="ghost">
         <StarIcon />
       </Button>
-      <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <Popover onOpenChange={setIsOpen} open={isOpen}>
         <PopoverTrigger asChild>
           <Button
-            variant="ghost"
-            size="icon"
             className="h-7 w-7 data-[state=open]:bg-accent"
+            size="icon"
+            variant="ghost"
           >
             <MoreHorizontalIcon />
           </Button>
         </PopoverTrigger>
         <PopoverContent
-          className="w-56 overflow-hidden rounded-lg p-0"
           align="end"
+          className="w-56 overflow-hidden rounded-lg p-0"
         >
-          <Sidebar collapsible="none" className="bg-transparent">
+          <Sidebar className="bg-transparent" collapsible="none">
             <SidebarContent>
-              {data.map((group, index) => (
-                <SidebarGroup key={index} className="border-b last:border-none">
+              {data.map((group) => (
+                <SidebarGroup
+                  className="border-b last:border-none"
+                  key={group.map((item) => item.label).join("::")}
+                >
                   <SidebarGroupContent className="gap-0">
                     <SidebarMenu>
-                      {group.map((item, index) => (
-                        <SidebarMenuItem key={index}>
+                      {group.map((item) => (
+                        <SidebarMenuItem key={item.label}>
                           <SidebarMenuButton>
                             {item.icon} <span>{item.label}</span>
                           </SidebarMenuButton>

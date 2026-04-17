@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 // ── ANSI stripping ───────────────────────────────────────────────────
 
@@ -25,10 +25,10 @@ export type ToolKind =
 
 export type ToolCallStatus = "pending" | "in_progress" | "completed" | "failed";
 
-export type ToolCallLocation = {
-  path: string;
+export interface ToolCallLocation {
   line?: number;
-};
+  path: string;
+}
 
 export type ToolContentBlock =
   | { type: "content"; content: { type: "text"; text: string } }
@@ -50,17 +50,17 @@ export type Part =
       locations: ToolCallLocation[];
     };
 
-export type AgentMessage = {
+export interface AgentMessage {
   id: string;
-  role: "user" | "assistant";
   parts: Part[];
-};
+  role: "user" | "assistant";
+}
 
-export type ModelInfo = {
+export interface ModelInfo {
+  description?: string;
   modelId: string;
   name: string;
-  description?: string;
-};
+}
 
 export type PermissionMode =
   | "plan"
@@ -70,10 +70,10 @@ export type PermissionMode =
   | "dontAsk"
   | "bypassPermissions";
 
-export type PermissionDenial = {
+export interface PermissionDenial {
   toolName: string;
   toolUseId: string;
-};
+}
 
 type Status = "connecting" | "loading" | "ready" | "streaming" | "error";
 
@@ -97,10 +97,10 @@ type ServerMessage =
   | { type: "permission_mode/set"; permissionMode: PermissionMode }
   | { type: "error"; message: string };
 
-type SessionUpdate = {
+interface SessionUpdate {
   sessionUpdate: string;
   [key: string]: unknown;
-};
+}
 
 // ── Hook ────────────────────────────────────────────────────────────
 
@@ -109,7 +109,7 @@ export function useAgent(sessionId: string | null) {
   // Separate state for the in-progress streaming message to avoid
   // re-creating the full messages array on every chunk
   const [streamingMessage, setStreamingMessage] = useState<AgentMessage | null>(
-    null,
+    null
   );
   const [status, setStatus] = useState<Status>("connecting");
   const [models, setModels] = useState<ModelInfo[]>([]);
@@ -120,7 +120,7 @@ export function useAgent(sessionId: string | null) {
     PermissionDenial[]
   >([]);
   const [resolvedSessionId, setResolvedSessionId] = useState<string | null>(
-    null,
+    null
   );
   const [error, setError] = useState<string | null>(null);
   const [rawMessages, setRawMessages] = useState<unknown[]>([]);
@@ -144,11 +144,15 @@ export function useAgent(sessionId: string | null) {
   // flushes. That lets React.memo'd children (tool renderers, message parts)
   // bail out of re-render while streaming.
   const scheduleFlush = useCallback(() => {
-    if (flushRafRef.current !== null) return;
+    if (flushRafRef.current !== null) {
+      return;
+    }
     flushRafRef.current = requestAnimationFrame(() => {
       flushRafRef.current = null;
       const assistant = currentAssistantRef.current;
-      if (!assistant) return;
+      if (!assistant) {
+        return;
+      }
       const snapshot: AgentMessage = {
         ...assistant,
         parts: assistant.parts.slice(),
@@ -165,7 +169,9 @@ export function useAgent(sessionId: string | null) {
       flushRafRef.current = null;
     }
     const assistant = currentAssistantRef.current;
-    if (!assistant) return;
+    if (!assistant) {
+      return;
+    }
     const snapshot: AgentMessage = {
       ...assistant,
       parts: assistant.parts.slice(),
@@ -195,7 +201,9 @@ export function useAgent(sessionId: string | null) {
         }
 
         const text = stripAnsi((update as any).content?.text ?? "");
-        if (!text) return;
+        if (!text) {
+          return;
+        }
 
         // ACP ContentChunk carries an experimental messageId that groups
         // chunks belonging to the same logical message.  Use it to detect
@@ -207,7 +215,7 @@ export function useAgent(sessionId: string | null) {
           | undefined;
 
         setMessages((prev) => {
-          const last = prev[prev.length - 1];
+          const last = prev.at(-1);
           const sameMessage =
             last?.role === "user" &&
             // If we have messageId info, a change means a new message.
@@ -215,7 +223,7 @@ export function useAgent(sessionId: string | null) {
             (!messageId || messageId === lastUserMessageIdRef.current);
 
           if (sameMessage) {
-            const lastPart = last.parts[last.parts.length - 1];
+            const lastPart = last.parts.at(-1);
             if (lastPart?.type === "text") {
               const updated = { ...last, parts: [...last.parts] };
               updated.parts[updated.parts.length - 1] = {
@@ -314,33 +322,45 @@ export function useAgent(sessionId: string | null) {
       }
 
       if (type === "tool_call_update") {
-        if (!currentAssistantRef.current) return;
+        if (!currentAssistantRef.current) {
+          return;
+        }
         const parts = currentAssistantRef.current.parts;
         const idx = parts.findIndex(
           (p) =>
             p.type === "dynamic-tool" &&
-            p.toolCallId === (update as any).toolCallId,
+            p.toolCallId === (update as any).toolCallId
         );
-        if (idx < 0) return;
+        if (idx < 0) {
+          return;
+        }
         const toolPart = parts[idx] as Extract<Part, { type: "dynamic-tool" }>;
         // Build a replacement object so only this tool gets a new identity.
         const next: Extract<Part, { type: "dynamic-tool" }> = { ...toolPart };
         const content = (update as any).content as
           | ToolContentBlock[]
           | undefined;
-        if (content) next.content = content;
+        if (content) {
+          next.content = content;
+        }
         const locations = (update as any).locations as
           | ToolCallLocation[]
           | undefined;
-        if (locations) next.locations = locations;
-        if ((update as any).status) next.state = (update as any).status;
-        if ((update as any).title) next.title = (update as any).title;
+        if (locations) {
+          next.locations = locations;
+        }
+        if ((update as any).status) {
+          next.state = (update as any).status;
+        }
+        if ((update as any).title) {
+          next.title = (update as any).title;
+        }
         parts[idx] = next;
         scheduleFlush();
         return;
       }
     },
-    [scheduleFlush, finalizeAssistant],
+    [scheduleFlush, finalizeAssistant]
   );
 
   // Connect WebSocket and init session
@@ -366,8 +386,9 @@ export function useAgent(sessionId: string | null) {
         setResolvedSessionId(msg.sessionId);
         setModels(msg.models);
         setSelectedModel(msg.currentModelId ?? msg.models[0]?.modelId ?? "");
-        if (msg.currentPermissionMode)
+        if (msg.currentPermissionMode) {
           setPermissionMode(msg.currentPermissionMode);
+        }
         setStatus("ready");
         // Finalize any replayed assistant message from session/load
         if (currentAssistantRef.current) {
@@ -433,13 +454,14 @@ export function useAgent(sessionId: string | null) {
         flushRafRef.current = null;
       }
     };
-  }, [sessionId]);
+  }, [sessionId, handleUpdate, finalizeAssistant]);
 
   // Merge stable messages with the in-progress streaming message for consumers
   const allMessages = useMemo(
     () =>
-      streamingMessage !== null
-        ? (() => {
+      streamingMessage === null
+        ? messages
+        : (() => {
             const idx = messages.findIndex((m) => m.id === streamingMessage.id);
             if (idx >= 0) {
               const next = [...messages];
@@ -447,13 +469,14 @@ export function useAgent(sessionId: string | null) {
               return next;
             }
             return [...messages, streamingMessage];
-          })()
-        : messages,
-    [messages, streamingMessage],
+          })(),
+    [messages, streamingMessage]
   );
 
   const sendMessage = useCallback((text: string) => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      return;
+    }
 
     // Clear any previous permission denials
     setPermissionDenials([]);
@@ -473,29 +496,37 @@ export function useAgent(sessionId: string | null) {
   }, []);
 
   const cancel = useCallback(() => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      return;
+    }
     wsRef.current.send(JSON.stringify({ type: "cancel" }));
   }, []);
 
   const changeModel = useCallback((modelId: string) => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      return;
+    }
     setSelectedModel(modelId);
     wsRef.current.send(JSON.stringify({ type: "set_model", modelId }));
   }, []);
 
   const changeEffort = useCallback(
     (effort: "off" | "low" | "medium" | "high" | "max") => {
-      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+        return;
+      }
       wsRef.current.send(JSON.stringify({ type: "set_effort", effort }));
     },
-    [],
+    []
   );
 
   const changePermissionMode = useCallback((mode: PermissionMode) => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      return;
+    }
     setPermissionMode(mode);
     wsRef.current.send(
-      JSON.stringify({ type: "set_permission_mode", permissionMode: mode }),
+      JSON.stringify({ type: "set_permission_mode", permissionMode: mode })
     );
   }, []);
 

@@ -2,25 +2,25 @@ import { CpuIcon, HelpCircleIcon, type LucideIcon } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────
 
-export type CommandContext = {
-  changeModel: (modelId: string) => void;
-  setInput: (text: string) => void;
+export interface CommandContext {
   addInfoMessage: (text: string) => void;
+  changeModel: (modelId: string) => void;
   models: { modelId: string; name: string }[];
-};
+  setInput: (text: string) => void;
+}
 
 export type SlashCommandAction =
   | { type: "client"; execute: (args: string, ctx: CommandContext) => void }
   | { type: "transform"; transform: (args: string) => string };
 
-export type SlashCommand = {
-  name: string;
+export interface SlashCommand {
+  action: SlashCommandAction;
+  args?: string;
+  category: string;
   description: string;
   icon: LucideIcon;
-  category: string;
-  args?: string;
-  action: SlashCommandAction;
-};
+  name: string;
+}
 
 // ── Registry ───────────────────────────────────────────────────────
 
@@ -35,13 +35,17 @@ export const slashCommands: SlashCommand[] = [
       type: "client",
       execute: (args, ctx) => {
         const query = args.trim().toLowerCase();
-        if (!query) return;
+        if (!query) {
+          return;
+        }
         const match = ctx.models.find(
           (m) =>
             m.modelId.toLowerCase().includes(query) ||
-            m.name.toLowerCase().includes(query),
+            m.name.toLowerCase().includes(query)
         );
-        if (match) ctx.changeModel(match.modelId);
+        if (match) {
+          ctx.changeModel(match.modelId);
+        }
       },
     },
   },
@@ -55,9 +59,9 @@ export const slashCommands: SlashCommand[] = [
       execute: (_args, ctx) => {
         const lines = slashCommands.map(
           (cmd) =>
-            `\`/${cmd.name}${cmd.args ? " " + cmd.args : ""}\` — ${cmd.description}`,
+            `\`/${cmd.name}${cmd.args ? ` ${cmd.args}` : ""}\` — ${cmd.description}`
         );
-        ctx.addInfoMessage("**Available commands:**\n\n" + lines.join("\n"));
+        ctx.addInfoMessage(`**Available commands:**\n\n${lines.join("\n")}`);
       },
     },
   },

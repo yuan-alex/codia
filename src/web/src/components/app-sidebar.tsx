@@ -1,5 +1,5 @@
+import { MessageSquare, MoonIcon, Plus, SunIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { Plus, MessageSquare, SunIcon, MoonIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sidebar,
@@ -16,12 +16,12 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 
-type SessionListItem = {
-  sessionId: string;
+interface SessionListItem {
   cwd?: string;
-  title?: string;
   lastUpdated?: string;
-};
+  sessionId: string;
+  title?: string;
+}
 
 export function AppSidebar({
   activeSessionId,
@@ -53,7 +53,7 @@ export function AppSidebar({
   // Re-fetch when active session changes (new session created, prompt done, etc.)
   useEffect(() => {
     fetchSessions();
-  }, [activeSessionId, fetchSessions]);
+  }, [fetchSessions]);
 
   return (
     <Sidebar className="border-r-0" {...props}>
@@ -61,13 +61,13 @@ export function AppSidebar({
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton className="w-fit px-1.5">
-              <span className="text-xl font-medium">Codia</span>
+              <span className="font-medium text-xl">Codia</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
         <Button
-          onClick={onNewSession}
           className="w-full justify-start gap-2"
+          onClick={onNewSession}
           variant="outline"
         >
           <Plus className="size-4" />
@@ -85,8 +85,8 @@ export function AppSidebar({
                 .map((s) => (
                   <SidebarMenuItem key={s.sessionId}>
                     <SidebarMenuButton
-                      onClick={() => onSelectSession(s.sessionId)}
                       isActive={activeSessionId === s.sessionId}
+                      onClick={() => onSelectSession(s.sessionId)}
                       tooltip={s.title || s.sessionId.slice(0, 8)}
                     >
                       <MessageSquare />

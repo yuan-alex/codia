@@ -1,28 +1,28 @@
-import { useMemo, useCallback, useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import {
-  slashCommands,
-  type SlashCommand,
   type CommandContext,
+  type SlashCommand,
+  slashCommands,
 } from "@/lib/slash-commands";
 
-export type UseSlashCommandsReturn = {
+export interface UseSlashCommandsReturn {
+  /** Filtered commands based on query */
+  commands: SlashCommand[];
+  /** Execute a slash command typed directly (on form submit) */
+  executeFromInput: (text: string) => boolean;
+  /** Keyboard handler — attach to the textarea's onKeyDown */
+  handleKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
   /** Whether the command menu should be visible */
   isOpen: boolean;
   /** The search query (text after `/`) */
   query: string;
-  /** Filtered commands based on query */
-  commands: SlashCommand[];
-  /** Keyboard handler — attach to the textarea's onKeyDown */
-  handleKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
   /** Called when a command is selected from the menu (click or Enter) */
   selectCommand: (cmd: SlashCommand) => void;
-  /** Execute a slash command typed directly (on form submit) */
-  executeFromInput: (text: string) => boolean;
-};
+}
 
 export function useSlashCommands(
   input: string,
-  ctx: CommandContext,
+  ctx: CommandContext
 ): UseSlashCommandsReturn {
   const ctxRef = useRef(ctx);
   ctxRef.current = ctx;
@@ -38,12 +38,14 @@ export function useSlashCommands(
   const query = isOpen ? trimmed.slice(1) : "";
 
   const filteredCommands = useMemo(() => {
-    if (!query) return slashCommands;
+    if (!query) {
+      return slashCommands;
+    }
     const q = query.toLowerCase();
     return slashCommands.filter(
       (cmd) =>
         cmd.name.toLowerCase().includes(q) ||
-        cmd.description.toLowerCase().includes(q),
+        cmd.description.toLowerCase().includes(q)
     );
   }, [query]);
 
@@ -79,7 +81,9 @@ export function useSlashCommands(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       const t = e.currentTarget.value.trimStart();
       const menuOpen = t.startsWith("/") && !t.includes(" ") && t.length > 0;
-      if (!menuOpen) return;
+      if (!menuOpen) {
+        return;
+      }
 
       if (e.key === "Escape") {
         e.preventDefault();
@@ -97,7 +101,7 @@ export function useSlashCommands(
         e.preventDefault();
         highlightRef.current = Math.min(
           filteredRef.current.length - 1,
-          highlightRef.current + 1,
+          highlightRef.current + 1
         );
         return;
       }
@@ -112,12 +116,14 @@ export function useSlashCommands(
         return;
       }
     },
-    [],
+    []
   );
 
   const executeFromInput = useCallback((text: string): boolean => {
     const t = text.trimStart();
-    if (!t.startsWith("/")) return false;
+    if (!t.startsWith("/")) {
+      return false;
+    }
 
     const withoutSlash = t.slice(1);
     const spaceIdx = withoutSlash.indexOf(" ");
@@ -126,9 +132,11 @@ export function useSlashCommands(
     const args = spaceIdx >= 0 ? withoutSlash.slice(spaceIdx + 1).trim() : "";
 
     const cmd = slashCommands.find(
-      (c) => c.name.toLowerCase() === cmdName.toLowerCase(),
+      (c) => c.name.toLowerCase() === cmdName.toLowerCase()
     );
-    if (!cmd) return false;
+    if (!cmd) {
+      return false;
+    }
 
     const c = ctxRef.current;
     if (cmd.action.type === "client") {
